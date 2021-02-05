@@ -11,5 +11,3 @@ struct args {
 };
 
 struct args *parse_iargs(int, char**, size_t);
-char *read_line(FILE*);
-
