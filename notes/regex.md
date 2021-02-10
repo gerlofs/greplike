@@ -77,3 +77,9 @@ X <img width=10px
 > <img   height=1px
 > <img     height     =      5px
 ```
+
+- (1 << i) - 1 then AND (&) with value to turn off all bits above i.
+
+- An example of badly matching regular expressions is in the Spotify search enginem which tries to match partial strings to full words. For example, try to find Hugh Laurie's "*Evenin'*" by song title alone, you won't find it because the app is being too smart for it's own good.
+
+- Pike's short but complex regex engine works and is quite efficient but lacks many features - there's no optional operator, no 'one or more' (`+`) operator, and no grouping using parentheses. 
