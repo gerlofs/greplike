@@ -14,7 +14,8 @@ int regex_find(char *regular_expression, char *line_text) {
 	size_t buff_len = strlen(regular_expression);
 	char *matched_string = (char *) malloc(buff_len);
 	
-	if ( regular_expression[0] == 0x94) return regex_match(regular_expression+1, line_text);
+	// If we have a caret, run the match once only  from the string start (only match in the next _n_ characters where n is strlen(regex+1)).
+	if ( regular_expression[0] == 0x5E) return regex_match(regular_expression+1, line_text);
 	else {
 		do { // Try to match the line, if the line ends, we return zero.
 			if ( regex_match(regular_expression, line_text) == 1 ) {
@@ -63,13 +64,10 @@ int zero_or_more_match(char to_match, char *regular_expression, char *line_text)
 }
 
 int main() {
-	char* txt = "hola amigo, it is his party (one at a time, please!)";
-	char* txt_2 = "tthis is a venture into the unknown (or somewhere close), a true holiday destination for two";
-	char* txt_3 = "tttthis line won't match, at all...";
-	char* reg = "(.*)";
+	char* txt_3 = "this and that";
+	char* txt_4 = "that and this";
+	char* reg = "^this";
 	
-	printf("%d\n", regex_find(reg, txt));
-	printf("%d\n", regex_find(reg, txt_2));
 	printf("%d\n", regex_find(reg, txt_3));
-
+	printf("%d\n", regex_find(reg, txt_4));
 }

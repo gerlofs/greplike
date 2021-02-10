@@ -83,3 +83,5 @@ X <img width=10px
 - An example of badly matching regular expressions is in the Spotify search enginem which tries to match partial strings to full words. For example, try to find Hugh Laurie's "*Evenin'*" by song title alone, you won't find it because the app is being too smart for it's own good.
 
 - Pike's short but complex regex engine works and is quite efficient but lacks many features - there's no optional operator, no 'one or more' (`+`) operator, and no grouping using parentheses. 
+
+- To implement the pipe (selection) operator, we need to use seek the parentheses, starting at the regular expression pointer (pointing to '|') we move backwards 1 and forward 1, asserting we don't hit a parenthesis (check for that). 
