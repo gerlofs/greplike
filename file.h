@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "alloc.h"
+#define LINE_LIMIT 2048 // Standard UNIX line limit.
+#define BUFF_INCR 128 	// Number of bytes to increase the buffer by each time we don't read a line end.
 
 char *read_line(FILE*);
 
