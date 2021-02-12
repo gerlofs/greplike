@@ -119,19 +119,35 @@ char *create_group(char *regex_ptr) {
 	return group;
 }
 
-int multi_match_group(char *group, char *regex_ptr, char *text_ptr) {
+int multi_match_group(char *group, char *regex_ptr, char *line_ptr) {
 	// Seek through the expression to find the end of the group (right parentheses), if we don't find it then the expression is invalid (we should add a check for this at the beginning
 	//	of the program though). 
 	// When we find the group, move this to a new expression variable and run the corresponding matching function with it (e.g. '(abc)+` requires 'abc'->regex_new and `multi_match` to be called
 	//	for each character in the regex.
 	// We may need to alter multi_match to take a character pointer for to_match to allow for grouping, it should check strlen == 1 and work like normal if a string isn't given.
-	
+	char *read_ptr;
+	size_t group_len = strlen(group);
+
+	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *group || *group == 0x2E); read_ptr++) {
+		printf("%d : %c vs. %c\n", (*read_ptr == *group), *read_ptr, *group);
+		if ( *(group+1) == 0x00 ) group -= (group_len-1); // Reset the group pointer.
+		else group++;	
+		printf("%s\n", group);
+	}
+
+	do {
+		if ( regex_match(regex_ptr, read_ptr)) {
+			fprintf(stdout, "%s\n", read_ptr); 
+			return 1;
+		} else printf("%s\n", read_ptr);
+	} while (read_ptr-- > line_ptr);
 	
 	return 0;
 }
 
 int main(void) {
-	char reg[] = "^(abc)+d";
-	char txt[] = "cdabcdefgabdefgabcdzzz";
-	printf("%d\n", regex_find(reg, txt));
+	char grp[] = "abc";
+	char reg[] = "d";
+	char txt[] = "abcabcabcdef";
+	printf("%d\n", multi_match_group(grp, reg, txt));
 }
