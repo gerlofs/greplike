@@ -33,14 +33,14 @@ int regex_match(char *regular_expression, char *line_text) {
 	// If we've exhausted the regex pattern, we've matched.
 	else if ( current_char == 0x00 ) return 1;
 	// If we have an un-escaped bracket, we're grouping.
-	else if ( current_char == 0x28 && (*regular_expression-1) != 0x5C) {
+	else if ( (current_char != 0x5C && next_char == 0x28) || current_char == 0x28 ) {	
 		unsigned offset = ( current_char == 0x28 ) ? 1 : 2;
 		char *group = create_group(regular_expression+offset);
 		size_t group_len = strlen(group) + (offset--);
 		regular_expression += (3 + group_len);
 		if ( *regular_expression == 0x2B ) {
 			int result = regex_match(group, line_text);
-			if ( result ) return result & regex_match(regular_expression, line_text+strlen(group));
+			if ( result ) return result & regex_match(regular_expression, line_text+strlen(group)));
 		}
 		else return regex_match(regular_expression, line_text);
 	}
@@ -131,7 +131,7 @@ int multi_match_group(char *group, char *regex_ptr, char *text_ptr) {
 }
 
 int main(void) {
-	char reg[] = "^(abc)+d";
-	char txt[] = "cdabcdefgabdefgabcdzzz";
+	char *reg = "^(abc)+d";
+	char *txt = "cdabcdefgabdefgabcdzzz";
 	printf("%d\n", regex_find(reg, txt));
 }
