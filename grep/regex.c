@@ -37,12 +37,9 @@ int regex_match(char *regular_expression, char *line_text) {
 		unsigned offset = ( current_char == 0x28 ) ? 1 : 2;
 		char *group = create_group(regular_expression+offset);
 		size_t group_len = strlen(group) + (offset--);
-		regular_expression += (3 + group_len);
-		if ( *regular_expression == 0x2B ) {
-			int result = regex_match(group, line_text);
-			if ( result ) return result & regex_match(regular_expression, line_text+strlen(group));
-		}
-		else return regex_match(regular_expression, line_text);
+		regular_expression += (group_len+1);
+		unsigned to_match = (unsigned) (*(regular_expression++) == 0x2B);
+		return multi_match_group(to_match, group, regular_expression, line_text);	
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
 	else if ( next_char == 0x3F ) return (regex_match(regular_expression+2, line_text) || regex_match(regular_expression+2, line_text+1));
@@ -119,7 +116,7 @@ char *create_group(char *regex_ptr) {
 	return group;
 }
 
-int multi_match_group(char *group, char *regex_ptr, char *line_ptr) {
+int multi_match_group(unsigned match_n, char *group, char *regex_ptr, char *line_ptr) {
 	// Seek through the expression to find the end of the group (right parentheses), if we don't find it then the expression is invalid (we should add a check for this at the beginning
 	//	of the program though). 
 	// When we find the group, move this to a new expression variable and run the corresponding matching function with it (e.g. '(abc)+` requires 'abc'->regex_new and `multi_match` to be called
@@ -138,6 +135,7 @@ int multi_match_group(char *group, char *regex_ptr, char *line_ptr) {
 	do {
 		if ( regex_match(regex_ptr, read_ptr)) {
 			fprintf(stdout, "%s\n", read_ptr); 
+			if ( match_n > 0 && read_ptr == line_ptr ) return 0;
 			return 1;
 		} else printf("%s\n", read_ptr);
 	} while (read_ptr-- > line_ptr);
@@ -147,7 +145,7 @@ int multi_match_group(char *group, char *regex_ptr, char *line_ptr) {
 
 int main(void) {
 	char grp[] = "abc";
-	char reg[] = "d";
-	char txt[] = "abcabcabcdef";
-	printf("%d\n", multi_match_group(grp, reg, txt));
+	char reg[] = "^(cdc)*d";
+	char txt[] = "dab";
+	printf("%d\n", regex_find(reg, txt));
 }
