@@ -7,6 +7,8 @@
 // 3. Implement optional operator (?): Ignore the character entirely and continue the match on line_text+1 with regex+2. [DONE].
 // 4. Implement tests.
 
+groups *group = NULL;
+
 int regex_find(char *regular_expression, char *line_text) {
 	/*  Find the position to start regular expression matching from.
 		If the first character of the regular expression is a caret (^) we need to start searching 
@@ -35,7 +37,9 @@ int regex_match(char *regular_expression, char *line_text) {
 	// If we have an un-escaped bracket, we're grouping.
 	else if ( current_char == 0x28 && (*regular_expression-1) != 0x5C) {
 		unsigned offset = ( current_char == 0x28 ) ? 1 : 2;
-		char *group = create_group(regular_expression+offset);
+		groups *node = create_group(regular_expression+offset);
+		printf("%s %u\n", node->regex, node->regex_len);
+		exit(0);
 		size_t group_len = strlen(group) + (offset--);
 		regular_expression += (group_len+1);
 		unsigned to_match = (unsigned) (*(regular_expression++) == 0x2B);
@@ -89,39 +93,77 @@ int multi_match_single_char(unsigned match_n, char to_match, char *regular_expre
 	return 0;
 }
 
-char *create_group(char *regex_ptr) {
-	/*	Seek until we find a closing parenthesis, 
-	*	create a new string of size equal to the number of characters between the parentheses,
-	*	fill the new buffer by copying across part of the original regular expression,
-	*	TODO: Do we have to remove the grouping from the original regular expression? (E.g. what happens if we fail a grouping check, does the regex engine then try to create a group again?).
-	*/
-	size_t group_size;
-	char *read_ptr = regex_ptr;
+groups *create_node() {
+	groups *node = (groups *) error_checked_malloc(sizeof(groups));
+	node->regex = NULL;
+	node->regex_len = 0;
+	return node;
+}
 
-	// Parse the string until we reach the end parentheses or the EOL.
-	for ( group_size = 0; *read_ptr != 0x00 && *read_ptr != 0x29; group_size++,read_ptr++);
+groups *create_group(char *regex_ptr) {
+	/*	TODO: 
+	*	1. Create group tear down function [DONE].
+	*	2. Change create_group to check regex_ptr chars against all allocated groups currently in the linked list. 
+	*	3. Rewrite main regex code to work with new group struct rather than string (return nodes?)
+	* 	4. Test.
+	*/
 	
-	if ( *read_ptr == 0x00 ) {
-		fprintf(stderr, "Invalid regular expression given: no closing parentheses in grouping [%s]", regex_ptr);
-		exit(0);
+	// Check that the group linked list struct is initalised
+	char *read_ptr = regex_ptr;
+	groups *head = group;
+	groups *node = head;
+	
+	// Check that group is populated already: parse through regex string checking characters match existing regex group.
+	while ( node != NULL ) {
+		int matched = 0;
+		if ( node->regex != NULL ) {
+			for ( read_ptr = regex_ptr; (matched =(*read_ptr != 0x00 && *read_ptr != 0x29 && (*read_ptr == *(node->regex)))); read_ptr++ );
+		}
+		if ( matched && node->regex_len == (read_ptr - regex_ptr)) return node;
+		else node = node->next;
+	}
+
+	// TODO: What happens when the initial group is NULL (this is the most common case).
+	
+	// If the node isn't populated to begin with (no groups), parse the new group string.
+	if ( read_ptr == regex_ptr ) for ( ; *read_ptr != 0x29; read_ptr++) {
+		if ( *read_ptr == 0x00 ) {
+			fprintf(stderr, "Invalid regex provided, null byte found instead of end parenthesis");
+			exit(0);
+		}
+	}
+
+	size_t group_len = (read_ptr - regex_ptr); // Size of group in bytes.
+	
+	// Assign, allocate, and populate group linked list node with the group expression string.
+	printf("Assigning new node!\n");
+	node = create_node();
+	node->regex = (char *) error_checked_malloc(group_len+1);
+	strncpy(node->regex, regex_ptr, group_len);
+	node->regex[group_len] = (char) 0x00;
+	node->regex_len = strlen(node->regex);
+	return node;
+}
+
+void group_teardown() {
+	groups *head = group;
+	groups *next = NULL;
+	
+	while ( head != NULL ) {
+			next = head->next;
+			free(head);
+			head = next;
 	}
 	
-	char *group = (char *) error_checked_malloc(group_size+1);
-	if ( strlen(strncpy(group, regex_ptr, group_size)) < 0 ) {
-		fprintf(stderr, "Unable to copy string %s [offset +%u] to a new pointer!", regex_ptr, group_size);
-		exit(0);
-	}
-	
-	group[group_size] = (char) 0x00;
-	return group;
+	group = NULL;
 }
 
 int multi_match_group(unsigned match_n, char *group, char *regex_ptr, char *line_ptr) {
-	// Seek through the expression to find the end of the group (right parentheses), if we don't find it then the expression is invalid (we should add a check for this at the beginning
-	//	of the program though). 
-	// When we find the group, move this to a new expression variable and run the corresponding matching function with it (e.g. '(abc)+` requires 'abc'->regex_new and `multi_match` to be called
-	//	for each character in the regex.
-	// We may need to alter multi_match to take a character pointer for to_match to allow for grouping, it should check strlen == 1 and work like normal if a string isn't given.
+	/* Match a group, treating as if it were a single character. 
+	*
+	*
+	*/
+	
 	char *read_ptr;
 	size_t group_len = strlen(group);
 
@@ -144,8 +186,8 @@ int multi_match_group(unsigned match_n, char *group, char *regex_ptr, char *line
 }
 
 int main(void) {
-	char grp[] = "abc";
-	char reg[] = "^(cdc)*d";
-	char txt[] = "dab";
+	char reg[] = "(cdc)+d";
+	char txt[] = "fgcdcdabcdcddababb";
 	printf("%d\n", regex_find(reg, txt));
+	group_teardown();
 }
