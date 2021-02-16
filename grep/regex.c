@@ -39,11 +39,9 @@ int regex_match(char *regular_expression, char *line_text) {
 		unsigned offset = ( current_char == 0x28 ) ? 1 : 2;
 		groups *node = create_group(regular_expression+offset);
 		printf("%s %u\n", node->regex, node->regex_len);
-		exit(0);
-		size_t group_len = strlen(group) + (offset--);
-		regular_expression += (group_len+1);
+		regular_expression += (node->regex_len)+1;
 		unsigned to_match = (unsigned) (*(regular_expression++) == 0x2B);
-		return multi_match_group(to_match, group, regular_expression, line_text);	
+		return multi_match_group(to_match, node, regular_expression, line_text);	
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
 	else if ( next_char == 0x3F ) return (regex_match(regular_expression+2, line_text) || regex_match(regular_expression+2, line_text+1));
@@ -97,15 +95,12 @@ groups *create_node() {
 	groups *node = (groups *) error_checked_malloc(sizeof(groups));
 	node->regex = NULL;
 	node->regex_len = 0;
+	node->next = NULL;
 	return node;
 }
 
 groups *create_group(char *regex_ptr) {
-	/*	TODO: 
-	*	1. Create group tear down function [DONE].
-	*	2. Change create_group to check regex_ptr chars against all allocated groups currently in the linked list. 
-	*	3. Rewrite main regex code to work with new group struct rather than string (return nodes?)
-	* 	4. Test.
+	/*	TODO: Populate with comments/description.
 	*/
 	
 	// Check that the group linked list struct is initalised
@@ -119,6 +114,7 @@ groups *create_group(char *regex_ptr) {
 		if ( node->regex != NULL ) {
 			for ( read_ptr = regex_ptr; (matched =(*read_ptr != 0x00 && *read_ptr != 0x29 && (*read_ptr == *(node->regex)))); read_ptr++ );
 		}
+		
 		if ( matched && node->regex_len == (read_ptr - regex_ptr)) return node;
 		else node = node->next;
 	}
@@ -142,6 +138,16 @@ groups *create_group(char *regex_ptr) {
 	strncpy(node->regex, regex_ptr, group_len);
 	node->regex[group_len] = (char) 0x00;
 	node->regex_len = strlen(node->regex);
+	
+	if ( head == NULL ) group = node;
+	else {
+		// Write insert function.
+		for (; head->next != NULL; head = head->next );
+		head->next = node;
+		group = head;
+	}
+	
+	printf("Assigned: %s\n", group->regex);
 	return node;
 }
 
@@ -158,20 +164,19 @@ void group_teardown() {
 	group = NULL;
 }
 
-int multi_match_group(unsigned match_n, char *group, char *regex_ptr, char *line_ptr) {
+int multi_match_group(unsigned match_n, groups *node, char *regex_ptr, char *line_ptr) {
 	/* Match a group, treating as if it were a single character. 
 	*
 	*
 	*/
 	
 	char *read_ptr;
-	size_t group_len = strlen(group);
 
-	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *group || *group == 0x2E); read_ptr++) {
-		printf("%d : %c vs. %c\n", (*read_ptr == *group), *read_ptr, *group);
-		if ( *(group+1) == 0x00 ) group -= (group_len-1); // Reset the group pointer.
-		else group++;	
-		printf("%s\n", group);
+	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *(node->regex) || *(node->regex) == 0x2E); read_ptr++) {
+		printf("%d : %c vs. %c\n", (*read_ptr == *(node->regex)), *read_ptr, *(node->regex));
+		if ( *(node->regex+1) == 0x00 ) node->regex -= (node->regex_len-1); // Reset the group pointer.
+		else node->regex++;	
+		printf("%s\n", node->regex);
 	}
 
 	do {
