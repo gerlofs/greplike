@@ -199,8 +199,8 @@ void group_teardown() {
 }
 
 int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
-	/*	Match a group by creating a new regular expression that contains the
-	*		regular expression up to this point (minus all checked values)
+	/*	
+	*	No support for metacharacters within groups.
 	*/
 	
 	char *read_ptr;
@@ -211,20 +211,6 @@ int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
 		if ( *node_ptr+1 == 0x00 ) node_ptr -= (node->regex_len-1); // Reset the group pointer.
 		else node_ptr++;
 	}
-	
-	char *new_regex = (char *) error_checked_malloc(node->regex_len + strlen(regex_ptr) + 1);
-	strncpy(new_regex, node->regex, node->regex_len);
-	strncpy(new_regex+node->regex_len, regex_ptr, strlen(regex_ptr)+1);
-	new_regex[node->regex_len + strlen(regex_ptr)] = (char) 0x00;
-	printf("NEW REGEX: %s: ", new_regex);
-	regex_ptr = new_regex;
-	printf("%s\n", regex_ptr);
-	int match = regex_find(regex_ptr, line_ptr);
-	free(new_regex);
-	return match;
-	
-	/*
-	// New expression group + regex_ptr.
 
 	// If there is a metacharacter proceeding the closing parenthesis, we need to increment to avoid trying to match it.
 	// Note: Not having a metacharacter is entirely valid so we have to check for them here before continuing.
@@ -237,15 +223,15 @@ int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
 		}
 	} while (read_ptr-- > line_ptr);
 	
-	return 0;*/
+	return 0;
 }
 
 int main(void) {
 	// colou?r 
 	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
 	// colouring - if it does match, continue as normal with regex+2.
-	char reg[] = "W(o+a+)h d(u+)de";
-	char txt[] = "Woooooaaaaaz Woaaaaaaah fg duuuuuuude";
+	char reg[] = "W(o+a+)*h";
+	char txt[] = "Woaoahh";
 	printf("%d\n", regex_find(reg, txt));
 	group_teardown();
 }
