@@ -3,9 +3,11 @@
 // TODO:
 // 1. Implement + operator (similar to asterisk, seek all possible matches and work backwards to eliminate invalid character matches). [DONE].
 // 2. Implement grouping with ( and ) (unescaped). Might have to stop matching (or simply do this before starting to match), move the encapsulated expression into a new string and 
-//		run a seperate regex on it using the subsequent operator (if there is one, if there's not we just ignore the parentheses).
+//		run a seperate regex on it using the subsequent operator (if there is one, if there's not we just ignore the parentheses). [DONE].
 // 3. Implement optional operator (?): Ignore the character entirely and continue the match on line_text+1 with regex+2. [DONE].
 // 4. Implement tests.
+
+groups *group = NULL;
 
 int regex_find(char *regular_expression, char *line_text) {
 	/*  Find the position to start regular expression matching from.
@@ -26,7 +28,21 @@ int regex_find(char *regular_expression, char *line_text) {
 }
 
 int regex_match(char *regular_expression, char *line_text) {
+	/*	Take an input regular expression and an input line of text (usually from a file).
+	*	The first and second characters of the regular expression pointer determines the how to parse and check the line.
+	*		[0] == $ (0x24) || \0 (0x00) checks the regular expression and line text are both empty.
+	*		[0] == ( (0x28) [unescaped] starts a match-by-group (group a set of chars and check them all).
+	*		[1] == ? (0x3F) ignores the current and next characters and splits the regex checking into two branches (the 
+	*			character following the optional characters must either be at position n or position n+1, so check both.
+	*		[1] == * (0x2A) attempts to match against the current character and the successive character at regular_expression+2,
+	*			the former is allowed to fail.
+	*		[1] == + (0x2B) is the same as the above but requires both characters match.
+	*		Default: If the line is not at an end (0x00) and [0] is . or a matching character (== *line_text), continue matching
+	*			by recursively calling regex_match with each pointer incremented.
+	*/
+	
 	char current_char = regular_expression[0]; char next_char = regular_expression[1];
+	printf("%s __ %s\n", regular_expression, line_text);
 	
 	// If current regex char is $ and the next regex char is a NULL, check we've exhausted the line_text as well.
 	if ( current_char == 0x24 && next_char == 0x00 ) return (*line_text == 0x00);
@@ -35,17 +51,18 @@ int regex_match(char *regular_expression, char *line_text) {
 	// If we have an un-escaped bracket, we're grouping.
 	else if ( current_char == 0x28 && (*regular_expression-1) != 0x5C) {
 		unsigned offset = ( current_char == 0x28 ) ? 1 : 2;
-		char *group = create_group(regular_expression+offset);
-		size_t group_len = strlen(group) + (offset--);
-		regular_expression += (group_len+1);
-		unsigned to_match = (unsigned) (*(regular_expression++) == 0x2B);
-		return multi_match_group(to_match, group, regular_expression, line_text);	
+		groups *node = create_group(regular_expression+offset);
+		regular_expression += (node->regex_len)+1;
+		return multi_match_group(node, ++regular_expression, line_text);	
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
-	else if ( next_char == 0x3F ) return (regex_match(regular_expression+2, line_text) || regex_match(regular_expression+2, line_text+1));
+	else if ( next_char == 0x3F ) {
+		printf("%d | %c\n", current_char == *line_text, *line_text); 
+		if ( current_char == *line_text ) return regex_match(regular_expression+2, line_text+1);
+		else return regex_match(regular_expression+2, line_text);
+	}
 	// If there's a 'one or more' or a 'none or more' operator we start a different expression check (see func).
-	else if ( next_char == 0x2A ) return multi_match_single_char(0, current_char, regular_expression+2, line_text);
-	else if ( next_char == 0x2B ) return multi_match_single_char(1, current_char, regular_expression+2, line_text);
+	else if ( next_char == 0x2A || next_char == 0x2B ) return multi_match_single_char((next_char == 0x2B), current_char, regular_expression+2, line_text);
 	// If we're not at line end and we can match any character (besides line break) OR the char matches the text, continue matching (recurr).
 	// Additionally, if the current regex character is a backslash, we ignore it.
 	else if ( (current_char == 0x5C ) || (*line_text != 0x00 && ( current_char == 0x2E || current_char == *line_text)) )
@@ -56,7 +73,8 @@ int regex_match(char *regular_expression, char *line_text) {
 }
 
 int multi_match_single_char(unsigned match_n, char to_match, char *regular_expression, char *line_text) {		
-	/*	Select all characters in the line_text string that matches zero or more times, using leftmost longest matching.
+	/*	
+	*	Select all characters in the line_text string that matches zero or more times, using leftmost longest matching.
 	*	Starting from the position in the line string that *should* contain a match, increment the line pointer as long
 	*		as there IS a match OR the regular expression character to match is a period/dot (match anything) AND
 	*		we haven't reached the end of the line.
@@ -89,63 +107,131 @@ int multi_match_single_char(unsigned match_n, char to_match, char *regular_expre
 	return 0;
 }
 
-char *create_group(char *regex_ptr) {
-	/*	Seek until we find a closing parenthesis, 
-	*	create a new string of size equal to the number of characters between the parentheses,
-	*	fill the new buffer by copying across part of the original regular expression,
-	*	TODO: Do we have to remove the grouping from the original regular expression? (E.g. what happens if we fail a grouping check, does the regex engine then try to create a group again?).
-	*/
-	size_t group_size;
-	char *read_ptr = regex_ptr;
-
-	// Parse the string until we reach the end parentheses or the EOL.
-	for ( group_size = 0; *read_ptr != 0x00 && *read_ptr != 0x29; group_size++,read_ptr++);
-	
-	if ( *read_ptr == 0x00 ) {
-		fprintf(stderr, "Invalid regular expression given: no closing parentheses in grouping [%s]", regex_ptr);
-		exit(0);
-	}
-	
-	char *group = (char *) error_checked_malloc(group_size+1);
-	if ( strlen(strncpy(group, regex_ptr, group_size)) < 0 ) {
-		fprintf(stderr, "Unable to copy string %s [offset +%u] to a new pointer!", regex_ptr, group_size);
-		exit(0);
-	}
-	
-	group[group_size] = (char) 0x00;
-	return group;
+/* GROUPS (Linked List helpers) */
+groups *create_node() {
+	// Initalise a node structure before populating it.
+	groups *node = (groups *) error_checked_malloc(sizeof(groups));
+	node->regex = NULL;
+	node->regex_len = 0;
+	node->need_to_match = 0;
+	node->next = NULL;
+	return node;
 }
 
-int multi_match_group(unsigned match_n, char *group, char *regex_ptr, char *line_ptr) {
-	// Seek through the expression to find the end of the group (right parentheses), if we don't find it then the expression is invalid (we should add a check for this at the beginning
-	//	of the program though). 
-	// When we find the group, move this to a new expression variable and run the corresponding matching function with it (e.g. '(abc)+` requires 'abc'->regex_new and `multi_match` to be called
-	//	for each character in the regex.
-	// We may need to alter multi_match to take a character pointer for to_match to allow for grouping, it should check strlen == 1 and work like normal if a string isn't given.
-	char *read_ptr;
-	size_t group_len = strlen(group);
+void print_list()
+{
+	for (groups *node = group; node != NULL; node = node->next) printf("%s, %u\n", node->regex, node->regex_len);
+}
 
-	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *group || *group == 0x2E); read_ptr++) {
-		printf("%d : %c vs. %c\n", (*read_ptr == *group), *read_ptr, *group);
-		if ( *(group+1) == 0x00 ) group -= (group_len-1); // Reset the group pointer.
-		else group++;	
-		printf("%s\n", group);
+void append_node(groups *head, groups *node_to_append) {
+	// Traverse then add node to the end of the linked list. 
+	// Note: node_to_add must be populated with data before calling this function.
+	groups *node = head;
+	while ( node->next != NULL ) node = node->next;
+	node->next = node_to_append;
+}
+
+groups *create_group(char *regex_ptr) {
+	/*	Create and allocate a group to the global linked list (var groups* group). 
+	*	A group is simply a struct containing a regular expression (a partial of the full expression given to 
+	*		regex_match) string, the length of that string, and bit/flag signifying whether that expression
+	*		is an optional match or not. This struct is then appended to a global linked list. 
+	*	
+	*	A group is created by parsing through the regular expression string (pointer starting from the position of
+	*		the opening parenthesis + 1) until the closing parenthesis is reached. The characters in between are checked
+	*		against nodes in the linked list until we find a match (returning the matched node). If there's no match, 
+	*		the sub-string is copied into a newly allocated node which is then appended to the global list (after populating
+	*		with string length and match conditions). 
+	*	
+	*	The group node is returned after the global list is updated.
+	*/
+	
+	char *read_ptr = regex_ptr;
+	groups *node = group;	
+	
+	// Check that group is populated already: parse through regex string checking characters match existing regex group.
+	while ( node != NULL ) {
+		if ( node->regex != NULL ) {
+			char *node_read_ptr = node->regex;
+			for ( read_ptr = regex_ptr; *read_ptr == *node_read_ptr; read_ptr++,node_read_ptr++ );
+		}
+		if ( node->regex_len == (read_ptr - regex_ptr)) return node;
+		else node = node->next;
+	}
+	
+	// If the node isn't populated to begin with (no groups), parse the new group string.
+	if ( read_ptr == regex_ptr ) for ( ; *read_ptr != 0x29; read_ptr++) {
+		if ( *read_ptr == 0x00 ) {
+			fprintf(stderr, "Invalid regex provided, null byte found instead of end parenthesis");
+			exit(0);
+		}
 	}
 
-	do {
+	size_t group_len = (read_ptr - regex_ptr); // Size of group in bytes.
+	
+	// Assign, allocate, and populate group linked list node with the group expression string.
+	node = create_node();
+	node->regex = (char *) error_checked_malloc(group_len+1);
+	strncpy(node->regex, regex_ptr, group_len);
+	node->regex[group_len] = (char) 0x00;
+	node->regex_len = strlen(node->regex);
+	// If char immediately following the closed parenthesis is a * or ?, we do not need to match, set to zero.
+	// Otherwise set to 1 and force a match during group matching.
+	char regex_opt = *(regex_ptr+2);
+	node->need_to_match = (regex_opt != 0x2A && regex_opt != 0x3F);
+	
+	if ( group == NULL ) group = node;
+	else append_node(group, node);
+	return node;
+}
+
+void group_teardown() {
+	groups *head = group;
+	groups *next = NULL;
+	
+	while ( head != NULL ) {
+			next = head->next;
+			free(head);
+			head = next;
+	}
+	
+	group = NULL;
+}
+
+int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
+	/*	
+	*	No support for metacharacters within groups.
+	*/
+	
+	char *read_ptr;
+	char *node_ptr = node->regex;
+	
+	// Parse, the resulting pointer position (read_ptr) on a good day will contain the last character to match ((abd)+d gives d from 'abcd')
+	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *node_ptr || *node_ptr == 0x2E); read_ptr++) {
+		if ( *node_ptr+1 == 0x00 ) node_ptr -= (node->regex_len-1); // Reset the group pointer.
+		else node_ptr++;
+	}
+
+	// If there is a metacharacter proceeding the closing parenthesis, we need to increment to avoid trying to match it.
+	// Note: Not having a metacharacter is entirely valid so we have to check for them here before continuing.
+	if ( *regex_ptr == 0x2B || *regex_ptr == 0x2A || *regex_ptr == 0x3F ) regex_ptr++;
+
+	do { // Match similarly to the single character match in multi_match_single_char.
 		if ( regex_match(regex_ptr, read_ptr)) {
-			fprintf(stdout, "%s\n", read_ptr); 
-			if ( match_n > 0 && read_ptr == line_ptr ) return 0;
+			if ( node->need_to_match && (read_ptr-line_ptr) != node->regex_len) return 0;
 			return 1;
-		} else printf("%s\n", read_ptr);
+		}
 	} while (read_ptr-- > line_ptr);
 	
 	return 0;
 }
 
 int main(void) {
-	char grp[] = "abc";
-	char reg[] = "^(cdc)*d";
-	char txt[] = "dab";
+	// colou?r 
+	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
+	// colouring - if it does match, continue as normal with regex+2.
+	char reg[] = "W(o+a+)*h";
+	char txt[] = "Woaoahh";
 	printf("%d\n", regex_find(reg, txt));
+	group_teardown();
 }
