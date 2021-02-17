@@ -38,10 +38,8 @@ int regex_match(char *regular_expression, char *line_text) {
 	else if ( current_char == 0x28 && (*regular_expression-1) != 0x5C) {
 		unsigned offset = ( current_char == 0x28 ) ? 1 : 2;
 		groups *node = create_group(regular_expression+offset);
-		printf("%s %u\n", node->regex, node->regex_len);
 		regular_expression += (node->regex_len)+1;
-		unsigned to_match = (unsigned) (*(regular_expression++) == 0x2B);
-		return multi_match_group(to_match, node, regular_expression, line_text);	
+		return multi_match_group(node, ++regular_expression, line_text);	
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
 	else if ( next_char == 0x3F ) return (regex_match(regular_expression+2, line_text) || regex_match(regular_expression+2, line_text+1));
@@ -58,7 +56,8 @@ int regex_match(char *regular_expression, char *line_text) {
 }
 
 int multi_match_single_char(unsigned match_n, char to_match, char *regular_expression, char *line_text) {		
-	/*	Select all characters in the line_text string that matches zero or more times, using leftmost longest matching.
+	/*	
+	*	Select all characters in the line_text string that matches zero or more times, using leftmost longest matching.
 	*	Starting from the position in the line string that *should* contain a match, increment the line pointer as long
 	*		as there IS a match OR the regular expression character to match is a period/dot (match anything) AND
 	*		we haven't reached the end of the line.
@@ -92,34 +91,44 @@ int multi_match_single_char(unsigned match_n, char to_match, char *regular_expre
 }
 
 groups *create_node() {
+	// Initalise a node structure before populating it.
 	groups *node = (groups *) error_checked_malloc(sizeof(groups));
 	node->regex = NULL;
 	node->regex_len = 0;
+	node->need_to_match = 0;
 	node->next = NULL;
 	return node;
+}
+
+void print_list()
+{
+	for (groups *node = group; node != NULL; node = node->next) printf("%s, %u\n", node->regex, node->regex_len);
+}
+
+void append_node(groups *head, groups *node_to_append) {
+	// Traverse then add node to the end of the linked list. 
+	// Note: node_to_add must be populated with data before calling this function.
+	groups *node = head;
+	while ( node->next != NULL ) node = node->next;
+	node->next = node_to_append;
 }
 
 groups *create_group(char *regex_ptr) {
 	/*	TODO: Populate with comments/description.
 	*/
 	
-	// Check that the group linked list struct is initalised
 	char *read_ptr = regex_ptr;
-	groups *head = group;
-	groups *node = head;
+	groups *node = group;	
 	
 	// Check that group is populated already: parse through regex string checking characters match existing regex group.
 	while ( node != NULL ) {
-		int matched = 0;
 		if ( node->regex != NULL ) {
-			for ( read_ptr = regex_ptr; (matched =(*read_ptr != 0x00 && *read_ptr != 0x29 && (*read_ptr == *(node->regex)))); read_ptr++ );
+			char *node_read_ptr = node->regex;
+			for ( read_ptr = regex_ptr; *read_ptr == *node_read_ptr; read_ptr++,node_read_ptr++ );
 		}
-		
-		if ( matched && node->regex_len == (read_ptr - regex_ptr)) return node;
+		if ( node->regex_len == (read_ptr - regex_ptr)) return node;
 		else node = node->next;
 	}
-
-	// TODO: What happens when the initial group is NULL (this is the most common case).
 	
 	// If the node isn't populated to begin with (no groups), parse the new group string.
 	if ( read_ptr == regex_ptr ) for ( ; *read_ptr != 0x29; read_ptr++) {
@@ -132,22 +141,18 @@ groups *create_group(char *regex_ptr) {
 	size_t group_len = (read_ptr - regex_ptr); // Size of group in bytes.
 	
 	// Assign, allocate, and populate group linked list node with the group expression string.
-	printf("Assigning new node!\n");
 	node = create_node();
 	node->regex = (char *) error_checked_malloc(group_len+1);
 	strncpy(node->regex, regex_ptr, group_len);
 	node->regex[group_len] = (char) 0x00;
 	node->regex_len = strlen(node->regex);
+	// If char immediately following the closed parenthesis is a * or ?, we do not need to match, set to zero.
+	// Otherwise set to 1 and force a match during group matching.
+	char regex_opt = *(regex_ptr+2);
+	node->need_to_match = (regex_opt != 0x2A && regex_opt != 0x3F);
 	
-	if ( head == NULL ) group = node;
-	else {
-		// Write insert function.
-		for (; head->next != NULL; head = head->next );
-		head->next = node;
-		group = head;
-	}
-	
-	printf("Assigned: %s\n", group->regex);
+	if ( group == NULL ) group = node;
+	else append_node(group, node);
 	return node;
 }
 
@@ -164,35 +169,43 @@ void group_teardown() {
 	group = NULL;
 }
 
-int multi_match_group(unsigned match_n, groups *node, char *regex_ptr, char *line_ptr) {
-	/* Match a group, treating as if it were a single character. 
-	*
-	*
+int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
+	/*	Match a group as if it were a single character (see: multi_match_single_char).
+	*	Cast the line pointer to a new (read_ptr) variable and parse through the line whilst there is a full match against the group string.
+	*	If the character immediately proceeding the closing parenthesis does not signify that the group is optional, ensure that both the character
+	*		proceeding that (e.g. (abc)+d dictates that the string must contain 'abcd' for a match to occur) is a match AND the positions of the pointers
+	*							        ^ This character
+	*		indicate that there was a match ('efgabcdw') by ensuring the number of bytes between them is equal to the group string length.
+	*										     ^  ^
+	*											lp  rp
 	*/
 	
 	char *read_ptr;
-
-	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *(node->regex) || *(node->regex) == 0x2E); read_ptr++) {
-		printf("%d : %c vs. %c\n", (*read_ptr == *(node->regex)), *read_ptr, *(node->regex));
-		if ( *(node->regex+1) == 0x00 ) node->regex -= (node->regex_len-1); // Reset the group pointer.
-		else node->regex++;	
-		printf("%s\n", node->regex);
+	char *node_ptr = node->regex;
+	
+	// Parse, the resulting pointer position (read_ptr) on a good day will contain the last character to match ((abd)+d gives d from 'abcd')
+	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *node_ptr || *node_ptr == 0x2E); read_ptr++) {
+		if ( *node_ptr+1 == 0x00 ) node_ptr -= (node->regex_len-1); // Reset the group pointer.
+		else node_ptr++;
 	}
 
-	do {
+	// If there is a metacharacter proceeding the closing parenthesis, we need to increment to avoid trying to match it.
+	// Note: Not having a metacharacter is entirely valid so we have to check for them here before continuing.
+	if ( *regex_ptr == 0x2B || *regex_ptr == 0x2A || *regex_ptr == 0x3F ) regex_ptr++;
+
+	do { // Match similarly to the single character match in multi_match_single_char.
 		if ( regex_match(regex_ptr, read_ptr)) {
-			fprintf(stdout, "%s\n", read_ptr); 
-			if ( match_n > 0 && read_ptr == line_ptr ) return 0;
+			if ( node->need_to_match && (read_ptr-line_ptr) != node->regex_len) return 0;
 			return 1;
-		} else printf("%s\n", read_ptr);
+		}
 	} while (read_ptr-- > line_ptr);
 	
 	return 0;
 }
 
 int main(void) {
-	char reg[] = "(cdc)+d";
-	char txt[] = "fgcdcdabcdcddababb";
+	char reg[] = "(cdc)+y";
+	char txt[] = "abcdefgcdcergerfg";
 	printf("%d\n", regex_find(reg, txt));
 	group_teardown();
 }
