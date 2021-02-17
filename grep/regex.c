@@ -174,10 +174,10 @@ int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
 	*	Cast the line pointer to a new (read_ptr) variable and parse through the line whilst there is a full match against the group string.
 	*	If the character immediately proceeding the closing parenthesis does not signify that the group is optional, ensure that both the character
 	*		proceeding that (e.g. (abc)+d dictates that the string must contain 'abcd' for a match to occur) is a match AND the positions of the pointers
-	*							        ^ This character
+	*                                   ^ This character
 	*		indicate that there was a match ('efgabcdw') by ensuring the number of bytes between them is equal to the group string length.
-	*										     ^  ^
-	*											lp  rp
+	*                                            ^  ^
+	*                                           lp  rp
 	*/
 	
 	char *read_ptr;
