@@ -42,6 +42,7 @@ int regex_match(char *regular_expression, char *line_text) {
 	*/
 	
 	char current_char = regular_expression[0]; char next_char = regular_expression[1];
+	printf("%s __ %s\n", regular_expression, line_text);
 	
 	// If current regex char is $ and the next regex char is a NULL, check we've exhausted the line_text as well.
 	if ( current_char == 0x24 && next_char == 0x00 ) return (*line_text == 0x00);
@@ -55,7 +56,11 @@ int regex_match(char *regular_expression, char *line_text) {
 		return multi_match_group(node, ++regular_expression, line_text);	
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
-	else if ( next_char == 0x3F ) return (regex_match(regular_expression+2, line_text) || regex_match(regular_expression+2, line_text+1));
+	else if ( next_char == 0x3F ) {
+		printf("%d | %c\n", current_char == *line_text, *line_text); 
+		if ( current_char == *line_text ) return regex_match(regular_expression+2, line_text+1);
+		else return regex_match(regular_expression+2, line_text);
+	}
 	// If there's a 'one or more' or a 'none or more' operator we start a different expression check (see func).
 	else if ( next_char == 0x2A || next_char == 0x2B ) return multi_match_single_char((next_char == 0x2B), current_char, regular_expression+2, line_text);
 	// If we're not at line end and we can match any character (besides line break) OR the char matches the text, continue matching (recurr).
@@ -194,14 +199,8 @@ void group_teardown() {
 }
 
 int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
-	/*	Match a group as if it were a single character (see: multi_match_single_char).
-	*	Cast the line pointer to a new (read_ptr) variable and parse through the line whilst there is a full match against the group string.
-	*	If the character immediately proceeding the closing parenthesis does not signify that the group is optional, ensure that both the character
-	*		proceeding that (e.g. (abc)+d dictates that the string must contain 'abcd' for a match to occur) is a match AND the positions of the pointers
-	*                                   ^ This character
-	*		indicate that there was a match ('efgabcdw') by ensuring the number of bytes between them is equal to the group string length.
-	*                                            ^  ^
-	*                                           lp  rp
+	/*	Match a group by creating a new regular expression that contains the
+	*		regular expression up to this point (minus all checked values)
 	*/
 	
 	char *read_ptr;
@@ -212,6 +211,20 @@ int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
 		if ( *node_ptr+1 == 0x00 ) node_ptr -= (node->regex_len-1); // Reset the group pointer.
 		else node_ptr++;
 	}
+	
+	char *new_regex = (char *) error_checked_malloc(node->regex_len + strlen(regex_ptr) + 1);
+	strncpy(new_regex, node->regex, node->regex_len);
+	strncpy(new_regex+node->regex_len, regex_ptr, strlen(regex_ptr)+1);
+	new_regex[node->regex_len + strlen(regex_ptr)] = (char) 0x00;
+	printf("NEW REGEX: %s: ", new_regex);
+	regex_ptr = new_regex;
+	printf("%s\n", regex_ptr);
+	int match = regex_find(regex_ptr, line_ptr);
+	free(new_regex);
+	return match;
+	
+	/*
+	// New expression group + regex_ptr.
 
 	// If there is a metacharacter proceeding the closing parenthesis, we need to increment to avoid trying to match it.
 	// Note: Not having a metacharacter is entirely valid so we have to check for them here before continuing.
@@ -224,12 +237,15 @@ int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
 		}
 	} while (read_ptr-- > line_ptr);
 	
-	return 0;
+	return 0;*/
 }
 
 int main(void) {
-	char reg[] = "(cdc)+y";
-	char txt[] = "abcdefgcdcyabc";
+	// colou?r 
+	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
+	// colouring - if it does match, continue as normal with regex+2.
+	char reg[] = "W(o+a+)h d(u+)de";
+	char txt[] = "Woooooaaaaaz Woaaaaaaah fg duuuuuuude";
 	printf("%d\n", regex_find(reg, txt));
 	group_teardown();
 }
