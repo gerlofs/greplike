@@ -3,7 +3,7 @@
 // TODO:
 // 1. Implement + operator (similar to asterisk, seek all possible matches and work backwards to eliminate invalid character matches). [DONE].
 // 2. Implement grouping with ( and ) (unescaped). Might have to stop matching (or simply do this before starting to match), move the encapsulated expression into a new string and 
-//		run a seperate regex on it using the subsequent operator (if there is one, if there's not we just ignore the parentheses).
+//		run a seperate regex on it using the subsequent operator (if there is one, if there's not we just ignore the parentheses). [DONE].
 // 3. Implement optional operator (?): Ignore the character entirely and continue the match on line_text+1 with regex+2. [DONE].
 // 4. Implement tests.
 
@@ -28,6 +28,19 @@ int regex_find(char *regular_expression, char *line_text) {
 }
 
 int regex_match(char *regular_expression, char *line_text) {
+	/*	Take an input regular expression and an input line of text (usually from a file).
+	*	The first and second characters of the regular expression pointer determines the how to parse and check the line.
+	*		[0] == $ (0x24) || \0 (0x00) checks the regular expression and line text are both empty.
+	*		[0] == ( (0x28) [unescaped] starts a match-by-group (group a set of chars and check them all).
+	*		[1] == ? (0x3F) ignores the current and next characters and splits the regex checking into two branches (the 
+	*			character following the optional characters must either be at position n or position n+1, so check both.
+	*		[1] == * (0x2A) attempts to match against the current character and the successive character at regular_expression+2,
+	*			the former is allowed to fail.
+	*		[1] == + (0x2B) is the same as the above but requires both characters match.
+	*		Default: If the line is not at an end (0x00) and [0] is . or a matching character (== *line_text), continue matching
+	*			by recursively calling regex_match with each pointer incremented.
+	*/
+	
 	char current_char = regular_expression[0]; char next_char = regular_expression[1];
 	
 	// If current regex char is $ and the next regex char is a NULL, check we've exhausted the line_text as well.
@@ -44,8 +57,7 @@ int regex_match(char *regular_expression, char *line_text) {
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
 	else if ( next_char == 0x3F ) return (regex_match(regular_expression+2, line_text) || regex_match(regular_expression+2, line_text+1));
 	// If there's a 'one or more' or a 'none or more' operator we start a different expression check (see func).
-	else if ( next_char == 0x2A ) return multi_match_single_char(0, current_char, regular_expression+2, line_text);
-	else if ( next_char == 0x2B ) return multi_match_single_char(1, current_char, regular_expression+2, line_text);
+	else if ( next_char == 0x2A || next_char == 0x2B ) return multi_match_single_char((next_char == 0x2B), current_char, regular_expression+2, line_text);
 	// If we're not at line end and we can match any character (besides line break) OR the char matches the text, continue matching (recurr).
 	// Additionally, if the current regex character is a backslash, we ignore it.
 	else if ( (current_char == 0x5C ) || (*line_text != 0x00 && ( current_char == 0x2E || current_char == *line_text)) )
@@ -90,6 +102,7 @@ int multi_match_single_char(unsigned match_n, char to_match, char *regular_expre
 	return 0;
 }
 
+/* GROUPS (Linked List helpers) */
 groups *create_node() {
 	// Initalise a node structure before populating it.
 	groups *node = (groups *) error_checked_malloc(sizeof(groups));
@@ -114,7 +127,18 @@ void append_node(groups *head, groups *node_to_append) {
 }
 
 groups *create_group(char *regex_ptr) {
-	/*	TODO: Populate with comments/description.
+	/*	Create and allocate a group to the global linked list (var groups* group). 
+	*	A group is simply a struct containing a regular expression (a partial of the full expression given to 
+	*		regex_match) string, the length of that string, and bit/flag signifying whether that expression
+	*		is an optional match or not. This struct is then appended to a global linked list. 
+	*	
+	*	A group is created by parsing through the regular expression string (pointer starting from the position of
+	*		the opening parenthesis + 1) until the closing parenthesis is reached. The characters in between are checked
+	*		against nodes in the linked list until we find a match (returning the matched node). If there's no match, 
+	*		the sub-string is copied into a newly allocated node which is then appended to the global list (after populating
+	*		with string length and match conditions). 
+	*	
+	*	The group node is returned after the global list is updated.
 	*/
 	
 	char *read_ptr = regex_ptr;
@@ -205,7 +229,7 @@ int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
 
 int main(void) {
 	char reg[] = "(cdc)+y";
-	char txt[] = "abcdefgcdcergerfg";
+	char txt[] = "abcdefgcdcyabc";
 	printf("%d\n", regex_find(reg, txt));
 	group_teardown();
 }
