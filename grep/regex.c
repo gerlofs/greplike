@@ -1,10 +1,9 @@
 #include "regex.h"
 
 // TODO:
-// 1. Implement + operator (similar to asterisk, seek all possible matches and work backwards to eliminate invalid character matches). [DONE].
-// 2. Implement grouping with ( and ) (unescaped). Might have to stop matching (or simply do this before starting to match), move the encapsulated expression into a new string and 
-//		run a seperate regex on it using the subsequent operator (if there is one, if there's not we just ignore the parentheses). [DONE].
-// 3. Implement optional operator (?): Ignore the character entirely and continue the match on line_text+1 with regex+2. [DONE].
+// 1. Verify grouping works with restricted inputs
+// 2. Implement classes.
+// 3. Implement input regex validation.
 // 4. Implement tests.
 
 groups *group = NULL;
@@ -42,7 +41,6 @@ int regex_match(char *regular_expression, char *line_text) {
 	*/
 	
 	char current_char = regular_expression[0]; char next_char = regular_expression[1];
-	printf("%s __ %s\n", regular_expression, line_text);
 	
 	// If current regex char is $ and the next regex char is a NULL, check we've exhausted the line_text as well.
 	if ( current_char == 0x24 && next_char == 0x00 ) return (*line_text == 0x00);
@@ -57,7 +55,6 @@ int regex_match(char *regular_expression, char *line_text) {
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
 	else if ( next_char == 0x3F ) {
-		printf("%d | %c\n", current_char == *line_text, *line_text); 
 		if ( current_char == *line_text ) return regex_match(regular_expression+2, line_text+1);
 		else return regex_match(regular_expression+2, line_text);
 	}
@@ -199,8 +196,21 @@ void group_teardown() {
 }
 
 int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
-	/*	
-	*	No support for metacharacters within groups.
+	/*	Match a group, a set of literal characters - metacharacters are not supported - within a
+	*		set of parentheses. e.g. (abc) followed by an optional metacharacter that determines 
+	*		how many times, if at all the group should be matched. 
+	*		e.g. (abc)+d
+	*		> derabcabcd (MATCH)
+	*		> ababd (NO MATCH)
+	*		> abcf (NO MATCH)
+	*
+	*	Groups are matched in a similar way to matching single characters followed by metacharacters
+	*		e.g. 'a+' 'b?' 'c*'. The groups partial regular expression extracted from the input regular
+	*		expression is used to match against characters in the line, then we backtrack to find the
+	*		character immediately following any optional metacharacters (e.g. (abc)+d, 'd') and attempt
+	*		to match that. If we must match (+ following the group) then we also check the length of the 
+	*		remaining string (minus the character to match as discussed prior) is equal to the length of 
+	*
 	*/
 	
 	char *read_ptr;
@@ -208,19 +218,19 @@ int multi_match_group(groups *node, char *regex_ptr, char *line_ptr) {
 	
 	// Parse, the resulting pointer position (read_ptr) on a good day will contain the last character to match ((abd)+d gives d from 'abcd')
 	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *node_ptr || *node_ptr == 0x2E); read_ptr++) {
-		if ( *node_ptr+1 == 0x00 ) node_ptr -= (node->regex_len-1); // Reset the group pointer.
+		if ( *(node_ptr+1) == 0x00 ) node_ptr -= (node->regex_len-1); // Reset the group pointer.
 		else node_ptr++;
 	}
-
+	
+	// If we need to match and we haven't matched (length of the read_ptr is less than it should be), return with no match.
+	if ( node->need_to_match && (read_ptr-line_ptr) < node->regex_len) return 0;
+	
 	// If there is a metacharacter proceeding the closing parenthesis, we need to increment to avoid trying to match it.
 	// Note: Not having a metacharacter is entirely valid so we have to check for them here before continuing.
-	if ( *regex_ptr == 0x2B || *regex_ptr == 0x2A || *regex_ptr == 0x3F ) regex_ptr++;
+	regex_ptr += ( *regex_ptr == 0x2B || *regex_ptr == 0x2A || *regex_ptr == 0x3F );
 
 	do { // Match similarly to the single character match in multi_match_single_char.
-		if ( regex_match(regex_ptr, read_ptr)) {
-			if ( node->need_to_match && (read_ptr-line_ptr) != node->regex_len) return 0;
-			return 1;
-		}
+		if ( regex_match(regex_ptr, read_ptr)) return 1;
 	} while (read_ptr-- > line_ptr);
 	
 	return 0;
@@ -230,8 +240,8 @@ int main(void) {
 	// colou?r 
 	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
 	// colouring - if it does match, continue as normal with regex+2.
-	char reg[] = "W(o+a+)*h";
-	char txt[] = "Woaoahh";
+	char reg[] = "(abc)+d e(fgh)+i";
+	char txt[] = "erf abdabcabcd efghij";
 	printf("%d\n", regex_find(reg, txt));
 	group_teardown();
 }
