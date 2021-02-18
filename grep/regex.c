@@ -93,12 +93,11 @@ int multi_match_single_char(unsigned match_n, char to_match, char *regular_expre
 	// Run through the remaining text identifying where we stop matching (file end, no char match, no '.' operator).
 	for (text_ptr = line_text; *text_ptr != 0x00 && (*text_ptr == to_match || to_match == 0x2E); text_ptr++); 
 	
+	if ( match_n > 0 && text_ptr == line_text ) return 0; // If *, ignore this, otherwise check we have actually matched.
+	
 	do {
 		// Match the new string pointer to the regular expression character.
-		if ( regex_match(regular_expression, text_ptr)) { 
-			if ( match_n > 0 && text_ptr == line_text ) return 0; // If *, ignore this, otherwise check we have actually matched.
-			return 1;
-		}
+		if ( regex_match(regular_expression, text_ptr)) return 1;
 	} while (text_ptr-- > line_text); // Move backwards until we reach the 'start' of the text.
 	
 	return 0;
@@ -240,8 +239,8 @@ int main(void) {
 	// colou?r 
 	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
 	// colouring - if it does match, continue as normal with regex+2.
-	char reg[] = "(abc)+d e(fgh)+i";
-	char txt[] = "erf abdabcabcd efghij";
+	char reg[] = "(abc)+de*f+g?";
+	char txt[] = "erf abcabcabcdr abcdeeeffffff";
 	printf("%d\n", regex_find(reg, txt));
 	group_teardown();
 }
