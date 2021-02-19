@@ -103,6 +103,56 @@ int multi_match_single_char(unsigned match_n, char to_match, char *regular_expre
 	return 0;
 }
 
+struct expr_class *create_class(char *regex_ptr) {
+	char *read_ptr = regex_ptr; // Starts from the character following the opening bracket.
+	size_t regex_len = strlen(regex_ptr);
+	char *class_ptr = (char *) error_checked_malloc(regex_len-1);
+	*class_ptr = (char) 0x00;
+	char *write_ptr = class_ptr;
+	
+	for ( ; *read_ptr != 0x00 && *read_ptr != 0x5D; read_ptr++ ) { // Read from the start of the regex string until we reach a closing bracket.
+		// A non-hyphen character is present followed by a hyphen (indicating a range).
+		if ( *(read_ptr+1) == 0x2D && *(read_ptr+2) != 0x5D ) {
+			// TODO: Add checking for additional hyphens within the class.
+			class_ptr = generate_range(class_ptr, strlen(class_ptr), *read_ptr, *(read_ptr+2));
+			write_ptr = (class_ptr+strlen(class_ptr));
+			read_ptr += 2; // This needs a check along with it.
+		} else { 
+			*(write_ptr++) = *read_ptr;
+			*write_ptr = (char) 0x00;
+		}
+	}
+	
+	*write_ptr = (char) 0x00;
+	
+	struct expr_class *ec = (struct expr_class *) error_checked_malloc(sizeof(struct expr_class));
+	ec->expression = class_ptr;
+	ec->length = strlen(class_ptr);
+	return ec;
+}
+
+char *generate_range(char *class_ptr, size_t current_len, char a, char b) {
+	// Use read_ptr.
+	// Find range size.
+	if ( (int) a >  (int) b ) {
+		a ^= b;
+		b ^= a;
+		a ^= b; // Swap vars.
+	}
+	unsigned range_len = (int) b - (int) a;
+	
+	// Reallocate the class_ptr.
+	class_ptr = (char *) error_checked_realloc(class_ptr, current_len + range_len);
+	char *write_ptr = (class_ptr+current_len);
+
+	for (unsigned len = current_len; len < (range_len + current_len); len++,write_ptr++) {
+		*write_ptr = (char) a++;
+	}
+
+	*write_ptr = (char) 0x00;
+	return class_ptr;
+}
+
 /* GROUPS (Linked List helpers) */
 groups *create_node() {
 	// Initalise a node structure before populating it.
@@ -239,8 +289,11 @@ int main(void) {
 	// colou?r 
 	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
 	// colouring - if it does match, continue as normal with regex+2.
-	char reg[] = "(abc)+de*f+g?";
-	char txt[] = "erf abcabcabcdr abcdeeeffffff";
-	printf("%d\n", regex_find(reg, txt));
-	group_teardown();
+	char reg[] = "12a-z4]r";
+	struct expr_class *ec = create_class(reg);
+	printf("%s\n", ec->expression);
+	//char txt[] = "erf abcabcabcdr abcdeeeffffff";
+	//printf("%d\n", regex_find(reg, txt));
+	//group_teardown();
+	
 }
