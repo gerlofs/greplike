@@ -1,2 +1,1 @@
-# unix-utils
-A selection of utilities, recreated in C. Original, I know...
+Greplike
