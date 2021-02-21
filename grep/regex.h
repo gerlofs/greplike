@@ -7,28 +7,22 @@
 #include "../alloc.h"
 
 // Linked list structure containing groups within the base expression.
-typedef struct g {
-	char *regex; 
-	size_t regex_len;
-	int need_to_match;
-	struct g *next;
-} groups;
-
-struct expr_class {
+typedef struct node {
 	char *expression;
 	size_t length;
-};
+	int match_required;
+	struct node *next;
+} expression_list;
 
 int regex_find(char*, char*);
 int regex_match(char*, char*);
 int multi_match_single_char(unsigned, char, char*, char*);
-int multi_match_group(groups*, char*, char*);
-groups *create_group(char*);
-groups *create_node();
-void print_list();
-void append_node(groups*, groups*);
+int multi_match_group(expression_list*, char*, char*);
+expression_list *create_group(char*);
+expression_list *create_node();
+void append_node(expression_list*, expression_list*);
 void group_teardown();
-struct expr_class *create_class(char *);
+expression_list *create_class(char *);
 char *generate_range(char *, size_t, char, char);
 
 #endif
