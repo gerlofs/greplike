@@ -4,7 +4,8 @@
 // 1. Verify grouping works with restricted inputs
 // 2. Implement classes:
 //	Add class build functions (with parsing to return node if it exists) [DONE].
-//	Add and check class matching [IN PROGRESS].
+//	Add and check class matching [DONE].
+//  Get class checking to work with valid regexs that follow (e.g. [A-Z][a-z]+s is valid but requires regex match to the rest of the string).
 // 3. Implement input regex validation.
 // 4. Implement tests.
 // 5. Find and fix inevitable memory leaks.
@@ -60,7 +61,7 @@ int regex_match(char *regular_expression, char *line_text) {
 	else if ( current_char == 0x5B && *(regular_expression-1) != 0x5C) {
 		expression_list *node = create_class(++regular_expression);
 		while ( *(regular_expression++) != 0x5D );
-		return match_class(node, regular_expression+1, line_text);
+		return match_class(node, regular_expression, line_text);
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
 	else if ( next_char == 0x3F ) {
@@ -178,7 +179,7 @@ expression_list *create_class(char *regex_ptr) {
 	expression_list *ec = create_node();
 	ec->expression = class_ptr;
 	ec->length = strlen(class_ptr);
-	ec->match_required = (*(++read_ptr) == 0x2B);
+	ec->match_required = !(*(++read_ptr) == 0x2A || *read_ptr == 0x3F);
 
 	if ( class == NULL ) class = ec;
 	else append_node(class, ec);
@@ -223,7 +224,6 @@ int match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 	char *read_ptr = line_ptr;
 	char *check_ptr = node->expression;
 
-	printf("%s %s\n", check_ptr, read_ptr);
 
 	while ( read_ptr != 0x00 ) {
 		if ( *check_ptr == 0x00 ) break;
@@ -234,9 +234,13 @@ int match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 	}
 
 	if ( node->match_required && read_ptr == line_ptr ) return 0;
+	
+	printf("%s %s %s %d\n", check_ptr, read_ptr, regex_ptr, node->match_required);
+
+	if ( *regex_ptr == 0x2B || *regex_ptr == 0x2A || *regex_ptr == 0x3F ) regex_ptr++;
 
 	do { 
-		if ( *read_ptr == *regex_ptr ) return 1;
+		if ( regex_match(regex_ptr, read_ptr) ) return 1;
 	} while ( read_ptr-- > line_ptr);
 	
 	return 0;
@@ -374,7 +378,7 @@ int main(void) {
 	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
 	// colouring - if it does match, continue as normal with regex+2.
 	char txt[] = "Languages that parse regular expressions include Perl.";
-	char reg[] = "P[a-z]+r";
+	char reg[] = "^[A-Z][a-z]+s";
 	printf("%d\n", regex_find(reg, txt));
 	//char txt[] = "erf abcabcabcdr abcdeeeffffff";
 	//printf("%d\n", regex_find(reg, txt));
