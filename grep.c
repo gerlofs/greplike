@@ -1,6 +1,6 @@
 #include "grep.h"
-#include "../alloc.h"
-#include "../file.h"
+#include "alloc.h"
+#include "file.h"
 
 struct args *parse_iargs(int argc, char **argv, size_t nargs) {
 	if ( argc > (++nargs) ) {

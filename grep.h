@@ -1,3 +1,6 @@
+#ifndef GREP_H
+#define GREP_H
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,3 +13,5 @@ struct args {
 };
 
 struct args *parse_iargs(int, char**, size_t);
+
+#endif /* GREP_H */

@@ -1,5 +1,5 @@
-#ifndef __ALLOC_H
-#define __ALLOC_H
+#ifndef ALLOC_H
+#define ALLOC_H
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,4 +25,4 @@ void *error_checked_realloc(void *ptr, size_t nbytes) {
 	return ptr;
 }
 
-#endif
+#endif /* ALLOC_H */

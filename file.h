@@ -1,3 +1,6 @@
+#ifndef FILE_H
+#define FILE_H
+
 #include <stdlib.h>
 #include <stdio.h>
 #include "alloc.h"
@@ -39,3 +42,5 @@ char *read_line(FILE *file_pointer) {
 	free(line_pointer);
 	return line_buffer;
 }
+
+#endif /* FILE_H */

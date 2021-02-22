@@ -1,12 +1,12 @@
 #include "regex.h"
 
 // TODO:
-// 1. Verify grouping works with restricted inputs
+// 1. Verify grouping works with restricted inputs [DONE].
 // 2. Implement classes:
 //	Add class build functions (with parsing to return node if it exists) [DONE].
 //	Add and check class matching [DONE].
 //  Get class checking to work with valid regexs that follow (e.g. [A-Z][a-z]+s is valid but requires regex match to the rest of the string). [DONE]
-// 3. Implement input regex validation.
+// 3. Implement input regex validation. [DONE] Note: this is not required insofar as checking group / class bounds.
 // 4. Implement tests.
 // 5. Find and fix inevitable memory leaks.
 
@@ -53,10 +53,9 @@ int regex_match(char *regular_expression, char *line_text) {
 	else if ( current_char == 0x00 ) return 1;
 	// If we have an un-escaped bracket, we're grouping.
 	else if ( current_char == 0x28 && *(regular_expression-1) != 0x5C) {
-		unsigned offset = ( current_char == 0x28 ) ? 1 : 2;
-		expression_list *node = create_group(regular_expression+offset);
+		expression_list *node = create_group(++regular_expression);
 		regular_expression += (node->length)+1;
-		return match_group(node, ++regular_expression, line_text);	
+		return match_group(node, regular_expression, line_text);	
 	}
 	else if ( current_char == 0x5B && *(regular_expression-1) != 0x5C) {
 		expression_list *node = create_class(++regular_expression);
@@ -376,7 +375,7 @@ int main(void) {
 	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
 	// colouring - if it does match, continue as normal with regex+2.
 	char txt[] = "Languages that parse expressionx regular expressions include Perl.";
-	char reg[] = "expr(ess)ion[s]";
+	char reg[] = "expr(ess+ions";
 	printf("%d\n", regex_find(reg, txt));
 	//char txt[] = "erf abcabcabcdr abcdeeeffffff";
 	//printf("%d\n", regex_find(reg, txt));
