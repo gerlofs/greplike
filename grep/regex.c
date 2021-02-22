@@ -216,28 +216,23 @@ int match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 	*         as a boolean to determine whether we need to match against the chars
 	*         or not.  
 	*/
-
-	// Match all qualifying characters, if there's not a match regress until we match the 
-	// final character in the expression. If there's no match we will reach the end of the
-	// class_ptr string (0x00).
-
+	
 	char *read_ptr = line_ptr;
 	char *check_ptr = node->expression;
-
-
+	int match_multiple = (*regex_ptr == 0x2B || *regex_ptr == 0x2A);
+	
 	while ( read_ptr != 0x00 ) {
 		if ( *check_ptr == 0x00 ) break;
 		else if ( *check_ptr == *read_ptr ) {
-			check_ptr = node->expression;
 			read_ptr++;
-		} else check_ptr++;
+			if ( !match_multiple ) break;
+			else check_ptr = node->expression;
+			} else check_ptr++;
 	}
 
 	if ( node->match_required && read_ptr == line_ptr ) return 0;
 	
-	printf("%s %s %s %d\n", check_ptr, read_ptr, regex_ptr, node->match_required);
-
-	if ( *regex_ptr == 0x2B || *regex_ptr == 0x2A || *regex_ptr == 0x3F ) regex_ptr++;
+	if ( match_multiple || *regex_ptr == 0x3F ) regex_ptr++;
 
 	do { 
 		if ( regex_match(regex_ptr, read_ptr) ) return 1;
@@ -378,7 +373,7 @@ int main(void) {
 	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
 	// colouring - if it does match, continue as normal with regex+2.
 	char txt[] = "Languages that parse regular expressions include Perl.";
-	char reg[] = "^[A-Z][a-z]+s";
+	char reg[] = "expre[s]+ion";
 	printf("%d\n", regex_find(reg, txt));
 	//char txt[] = "erf abcabcabcdr abcdeeeffffff";
 	//printf("%d\n", regex_find(reg, txt));
