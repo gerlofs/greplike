@@ -1,4 +1,0 @@
-his
-This is a short line with little history.
-(.*)
-(flag) this is not a (flag)
