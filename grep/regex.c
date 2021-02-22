@@ -59,8 +59,8 @@ int regex_match(char *regular_expression, char *line_text) {
 	}
 	else if ( current_char == 0x5B && *(regular_expression-1) != 0x5C) {
 		expression_list *node = create_class(++regular_expression);
-		printf("%s\n", node->expression);
-		exit(0);
+		while ( *(regular_expression++) != 0x5D );
+		return match_class(node, regular_expression+1, line_text);
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
 	else if ( next_char == 0x3F ) {
@@ -216,24 +216,30 @@ int match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 	*         or not.  
 	*/
 
+	// Match all qualifying characters, if there's not a match regress until we match the 
+	// final character in the expression. If there's no match we will reach the end of the
+	// class_ptr string (0x00).
+
 	char *read_ptr = line_ptr;
 	char *check_ptr = node->expression;
-	int matched = 0;
 
-	while ( read_ptr != 0x00 && !(matched) ) {
-		if (*check_ptr == 0x00) matched++;
+	printf("%s %s\n", check_ptr, read_ptr);
+
+	while ( read_ptr != 0x00 ) {
+		if ( *check_ptr == 0x00 ) break;
 		else if ( *check_ptr == *read_ptr ) {
 			check_ptr = node->expression;
 			read_ptr++;
 		} else check_ptr++;
 	}
 
-	// Result of while loop is a read_ptr that ends on the last character not to
-	// match any of the characters in the class expression, length check then
-	// ensure last character matches the regular expression character.
-	
 	if ( node->match_required && read_ptr == line_ptr ) return 0;
-	return ( *read_ptr == *regex_ptr );
+
+	do { 
+		if ( *read_ptr == *regex_ptr ) return 1;
+	} while ( read_ptr-- > line_ptr);
+	
+	return 0;
 }
 
 /* GROUPS (Linked List helpers) */

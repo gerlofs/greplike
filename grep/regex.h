@@ -24,5 +24,6 @@ void append_node(expression_list*, expression_list*);
 void group_teardown();
 expression_list *create_class(char *);
 char *generate_range(char *, size_t, char, char);
+int match_class(expression_list*, char*, char*);
 
 #endif
