@@ -5,7 +5,7 @@
 // 2. Implement classes:
 //	Add class build functions (with parsing to return node if it exists) [DONE].
 //	Add and check class matching [DONE].
-//  Get class checking to work with valid regexs that follow (e.g. [A-Z][a-z]+s is valid but requires regex match to the rest of the string).
+//  Get class checking to work with valid regexs that follow (e.g. [A-Z][a-z]+s is valid but requires regex match to the rest of the string). [DONE]
 // 3. Implement input regex validation.
 // 4. Implement tests.
 // 5. Find and fix inevitable memory leaks.
@@ -56,7 +56,7 @@ int regex_match(char *regular_expression, char *line_text) {
 		unsigned offset = ( current_char == 0x28 ) ? 1 : 2;
 		expression_list *node = create_group(regular_expression+offset);
 		regular_expression += (node->length)+1;
-		return multi_match_group(node, ++regular_expression, line_text);	
+		return match_group(node, ++regular_expression, line_text);	
 	}
 	else if ( current_char == 0x5B && *(regular_expression-1) != 0x5C) {
 		expression_list *node = create_class(++regular_expression);
@@ -306,8 +306,7 @@ expression_list *create_group(char *regex_ptr) {
 	node->length = strlen(node->expression);
 	// If char immediately following the closed parenthesis is a * or ?, we do not need to match, set to zero.
 	// Otherwise set to 1 and force a match during group matching.
-	char regex_opt = *(regex_ptr+2);
-	node->match_required = (regex_opt == 0x2B);
+	node->match_required = !(*(++read_ptr) == 0x2B || *read_ptr == 0x3F);
 	
 	if ( group == NULL ) group = node;
 	else append_node(group, node);
@@ -327,7 +326,7 @@ void group_teardown() {
 	group = NULL;
 }
 
-int multi_match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
+int match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	/*	Match a group, a set of literal characters - metacharacters are not supported - within a
 	*		set of parentheses. e.g. (abc) followed by an optional metacharacter that determines 
 	*		how many times, if at all the group should be matched. 
@@ -347,13 +346,17 @@ int multi_match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	
 	char *read_ptr;
 	char *node_ptr = node->expression;
+	int match_multiple = (*regex_ptr == 0x2B || *regex_ptr == 0x2A);
 	
 	// Parse, the resulting pointer position (read_ptr) on a good day will contain the last character to match ((abd)+d gives d from 'abcd')
 	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *node_ptr || *node_ptr == 0x2E); read_ptr++) {
-		if ( *(node_ptr+1) == 0x00 ) node_ptr -= (node->length-1); // Reset the group pointer.
+		if ( *node_ptr == 0x00 && !match_multiple ) {
+			read_ptr++; break;
+		}
+		else if ( *(node_ptr+1) == 0x00 ) node_ptr -= (node->length-1); // Reset the group pointer.
 		else node_ptr++;
 	}
-	
+		
 	// If we need to match and we haven't matched (length of the read_ptr is less than it should be), return with no match.
 	if ( node->match_required && (read_ptr-line_ptr) < node->length) return 0;
 	
@@ -372,8 +375,8 @@ int main(void) {
 	// colou?r 
 	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
 	// colouring - if it does match, continue as normal with regex+2.
-	char txt[] = "Languages that parse regular expressions include Perl.";
-	char reg[] = "expre[s]+ion";
+	char txt[] = "Languages that parse expressionx regular expressions include Perl.";
+	char reg[] = "expr(ess)ion[s]";
 	printf("%d\n", regex_find(reg, txt));
 	//char txt[] = "erf abcabcabcdr abcdeeeffffff";
 	//printf("%d\n", regex_find(reg, txt));
