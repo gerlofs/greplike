@@ -19,7 +19,10 @@ int regex_find(char *regular_expression, char *line_text) {
 		from the start of the line and use the regular expression minus the first character (^) to match against.
 	 *  Otherwise search the line character by character in a loop.
 	*/
-
+	
+	size_t line_len = strlen(line_text);
+	if ( line_text[line_len-1] == 0x0A ) line_text[line_len-1] = 0x00;
+	
 	// If we have a caret, run the match once only from the string start 
 	// (only match in the next _n_ characters where n is strlen(regex+1)).
 	if ( regular_expression[0] == 0x5E) return regex_match(regular_expression+1, line_text);
@@ -145,7 +148,6 @@ expression_list *create_class(char *regex_ptr) {
 			} 
 			
 			if ( (*read_ptr == 0x00 || *read_ptr == 0x5D) && *class_ptr == 0x00 ) {
-				printf("Found match... %s\n", head->expression);
 				return head;			
 			}
 			// If the pointers are at an end, we can return the node. 
@@ -369,18 +371,3 @@ int match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	
 	return 0;
 }
-
-int main(void) {
-	// colou?r 
-	// coloring - if it doesn't match, continue regex+2 at current line pointer position.
-	// colouring - if it does match, continue as normal with regex+2.
-	char txt[] = "Languages that parse expressionx regular expressions include Perl.";
-	char reg[] = "expr(ess+ions";
-	printf("%d\n", regex_find(reg, txt));
-	//char txt[] = "erf abcabcabcdr abcdeeeffffff";
-	//printf("%d\n", regex_find(reg, txt));
-	//group_teardown();
-	
-}
-
-

@@ -1,10 +1,10 @@
-#ifndef REGEX
-#define REGEX
+#ifndef REGEX_H
+#define REGEX_H
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "../alloc.h"
+#include "alloc.h"
 
 // Linked list structure containing groups within the base expression.
 typedef struct node {
