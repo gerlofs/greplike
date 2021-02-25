@@ -222,6 +222,9 @@ int match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 	char *check_ptr = node->expression;
 	int match_multiple = (*regex_ptr == 0x2B || *regex_ptr == 0x2A);
 	
+	// TODO: Fix class matching, should match only characters within the class, intermediates chars are disallowed.
+	// e.g. [l]+s would not match class, [l]*s would because l is optional.
+	
 	while ( read_ptr != 0x00 ) {
 		if ( *check_ptr == 0x00 ) break;
 		else if ( *check_ptr == *read_ptr ) {
@@ -232,6 +235,8 @@ int match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 	}
 
 	if ( node->match_required && read_ptr == line_ptr ) return 0;
+	
+	printf("DEBUG: %s, %s\n", read_ptr, line_ptr);
 	
 	if ( match_multiple || *regex_ptr == 0x3F ) regex_ptr++;
 
