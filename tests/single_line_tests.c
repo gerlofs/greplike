@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include "../src/file.h"
 #include "../src/regex.h"
-#include "unit.h"
 
 static const char filename[] = "single_line_regex.txt";
 
