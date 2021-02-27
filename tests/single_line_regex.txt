@@ -1,0 +1,23 @@
+abcdefg
+This is a line abcdefg
+
+abd
+This is an embabdedded line.
+
+ab(cd)efg
+This is a line abcdefghijlkmop
+
+(abc)+defg
+This is abc repeated line abcabcabcabcdefg
+
+[abc]e
+This is a class cecking line
+
+(abc)*e
+Optional group line
+
+[abc]*e
+Optional class line
+
+[abc]*e
+A line with multiple aaaabe.

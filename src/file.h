@@ -1,6 +1,7 @@
 #ifndef FILE_H
 #define FILE_H
 
+#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "alloc.h"
@@ -19,7 +20,7 @@ char *read_line(FILE *file_pointer) {
 	char *line_buffer = (char *) error_checked_malloc(BUFF_INCR); // Resizable buffer.
 	
 	for(;;) {
-		if (fgets(line_pointer, BUFF_INCR, file_pointer) == NULL) 	break; // EOF.
+		if (fgets(line_pointer, BUFF_INCR, file_pointer) == NULL) return NULL; // EOF.
 		
 		line_length = strlen(line_pointer);
 		
