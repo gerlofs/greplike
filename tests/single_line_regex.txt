@@ -21,3 +21,6 @@ Optional class line
 
 [abc]*e
 A line with multiple aaaabe.
+
+(abc)*d
+A line with multiple aaaaaaabd.
