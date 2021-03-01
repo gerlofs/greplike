@@ -148,7 +148,9 @@ expression_list *create_class(char *regex_ptr) {
 			} 
 			
 			if ( (*read_ptr == 0x00 || *read_ptr == 0x5D) && *class_ptr == 0x00 ) {
-				return head;			
+				if ( *(read_ptr+1) == head->match_char ) return head;
+				else if ( head->next == NULL ) break;
+				else head = head->next;
 			}
 			// If the pointers are at an end, we can return the node. 
 
@@ -180,7 +182,9 @@ expression_list *create_class(char *regex_ptr) {
 	expression_list *ec = create_node();
 	ec->expression = class_ptr;
 	ec->length = strlen(class_ptr);
-	ec->match_required = !(*(++read_ptr) == 0x2A || *read_ptr == 0x3F);
+	read_ptr++;
+	ec->match_required = !(*read_ptr == 0x2A || *read_ptr == 0x3F);
+	ec->match_char = *read_ptr;
 
 	if ( class == NULL ) class = ec;
 	else append_node(class, ec);
@@ -231,13 +235,11 @@ int match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 			read_ptr++;
 			if ( !match_multiple ) break;
 			else check_ptr = node->expression;
-			} else check_ptr++;
+		} else check_ptr++;
 	}
 
 	if ( node->match_required && read_ptr == line_ptr ) return 0;
-	
-	printf("DEBUG: %s, %s\n", read_ptr, line_ptr);
-	
+		
 	if ( match_multiple || *regex_ptr == 0x3F ) regex_ptr++;
 
 	do { 
@@ -290,7 +292,12 @@ expression_list *create_group(char *regex_ptr) {
 			char *node_read_ptr = node->expression;
 			for ( read_ptr = regex_ptr; *read_ptr == *node_read_ptr; read_ptr++,node_read_ptr++ );
 		}
-		if ( node->length == (read_ptr - regex_ptr)) return node;
+		if ( node->length == (read_ptr - regex_ptr)) {
+			if ( *(read_ptr+1) == node->match_char ) {
+				return node;
+			}
+			else node = node->next;
+		}
 		else node = node->next;
 	}
 	
@@ -312,8 +319,8 @@ expression_list *create_group(char *regex_ptr) {
 	node->length = strlen(node->expression);
 	// If char immediately following the closed parenthesis is a * or ?, we do not need to match, set to zero.
 	// Otherwise set to 1 and force a match during group matching.
-	node->match_required = !(*(++read_ptr) == 0x2B || *read_ptr == 0x3F);
-	
+	node->match_required = (*(++read_ptr) != 0x2A && *read_ptr != 0x3F);
+	node->match_char = *read_ptr;
 	if ( group == NULL ) group = node;
 	else append_node(group, node);
 	return node;
@@ -353,7 +360,7 @@ int match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	char *read_ptr;
 	char *node_ptr = node->expression;
 	int match_multiple = (*regex_ptr == 0x2B || *regex_ptr == 0x2A);
-	
+		
 	// Parse, the resulting pointer position (read_ptr) on a good day will contain the last character to match ((abd)+d gives d from 'abcd')
 	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *node_ptr || *node_ptr == 0x2E); read_ptr++) {
 		if ( *node_ptr == 0x00 && !match_multiple ) {

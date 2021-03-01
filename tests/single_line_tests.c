@@ -3,7 +3,7 @@
 #include "../src/file.h"
 #include "../src/regex.h"
 
-static const char filename[] = "single_line_regex.txt";
+static const char filename[] = "tests/single_line_regex.txt";
 
 int main(void) {
 	/*	Open single_line_regex file, parse each new line as a regular expression input or a input string.
