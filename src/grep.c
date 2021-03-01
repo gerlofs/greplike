@@ -28,6 +28,21 @@ struct args *parse_iargs(int argc, char **argv, size_t nargs) {
 // 					use PCRE - this is what git's grep utility does.
 // 
 int main(int argc, char **argv) {
+	// Parse input arguments scanning for '-'.
+	// greplike <expr> <filename> 
+	// greplike -f <filename1>, <filename2>, <filename3> 
+	
+	char *arg_ptr;
+	for ( int n = 1; n < argc; n++ ) {
+		arg_ptr = argv[n];
+		if ( arg_ptr == NULL ) break;
+		do {
+			printf("%c", *arg_ptr++);
+		} while ( *arg_ptr != 0x00 );
+		printf("\n");
+	}		
+	
+	/*
 	struct args *a = parse_iargs(argc, argv, 2);
 	FILE *file_ptr = fopen(a->filename, "r");
 	if ( file_ptr == NULL ) {
@@ -46,5 +61,5 @@ int main(int argc, char **argv) {
 	free(line);
 	free(a->filename);
 	free(a->pattern);
-	free(a);
+	free(a);*/
 }
