@@ -21,7 +21,13 @@ struct arguments {
 	struct file *files;
 	size_t num_files;
 	char *expression;
-	int return_line_n;
+	int flags; 
+	/*	Flags:
+	*	0: Return line numbers.
+	*	1: Return filenames.
+	*	2: Return match count.
+	*	
+	*/
 };
 
 struct arguments *append_file(struct arguments*, char*);
