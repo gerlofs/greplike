@@ -2,6 +2,8 @@
 #include "alloc.h"
 #include "file.h"
 
+#define is_bit_set(val, posn) ((val) & (1 << (posn)))
+
 // TODO:
 // 1. Implement option parsing [DONE].
 // 2. Implement -n (print line number of each line with regex_match).
@@ -83,20 +85,12 @@ struct arguments *parse_arguments(int argc, char **argv) {
 	
 	int end_index = 0;
 	while(node != NULL) {
-		printf("%d, %d\n", node->optn, node->next == NULL);
 		if ( node->next == NULL ) end_index = argc;
 		else end_index = node->next->optn;
 		char c = node->optc;
-		int i = node->optn;
-		do {
-			printf("-- %d, %c", i, c);
-			switch ( (int) c ) {
-				case 0x66: // -f
-					args = append_file(args, argv[i]);
-					break;
-				case 0x65: // -e
-					args = set_expression(args, argv[i]);
-					break;
+		int i = node->optn+1;
+		if ( i == end_index ) {
+			switch ( (int) c ) {	
 				case 0x6E: // -n 
 					args->flags |= 0x01; // Set bit in flags for returning line numbers.
 					break;
@@ -105,9 +99,21 @@ struct arguments *parse_arguments(int argc, char **argv) {
 					break;
 				case 0x63: // -c 
 					args->flags |= 0x04; // Set bit in flags for counting occurances.
-					break;		
+					break;
+			}	
+		}
+
+		for (;i < end_index;i++) {
+			printf("%d, %d, %s\n", i, end_index, argv[i]);
+			switch ( (int) c ) {
+				case 0x66: // -f
+					args = append_file(args, argv[i]);
+					break;
+				case 0x65: // -e
+					args = set_expression(args, argv[i]);
+					break;	
 			}
-		} while ( ++i < end_index );
+		}
 	
 		node = node->next;
 	}
@@ -133,6 +139,33 @@ struct arguments *parse_arguments(int argc, char **argv) {
 int run_matching(struct arguments *args) {
 	// Run regex match on lines from files using expression.
 	// Collect information and return is based upon the bits set in args->flags.
+	size_t match_count = 0;
+
+	for ( int f = 0; f < args->num_files; f++ ) {
+		size_t line_number = 0;
+		FILE *fp = fopen(args->files[f].filename, "r");
+		if ( fp == NULL ) {
+			fprintf(stderr, "Could not open file %s\n", args->files[f].filename);
+			exit(0);
+		}
+		
+		char *lb = NULL;
+	       	while ((lb=read_line(fp)) != NULL ) {
+			line_number++;
+			if ( regex_find(args->expression, lb) ) {
+				match_count++;
+				if ( is_bit_set(args->flags, 0) ) printf("%u ", line_number);
+				else if ( is_bit_set(args->flags, 1) ) {
+					printf("%d ", f);
+					break;
+				}
+			}
+		}
+	}
+
+	if ( is_bit_set(args->flags, 2) ) printf("%u ", match_count);
+	printf("\n");
+
 	return 1;
 }
 
@@ -143,5 +176,6 @@ int main(int argc, char **argv) {
 	
 	struct arguments *args = parse_arguments(argc, argv);
 	printf("%d, %s, %s, %d\n", args->num_files, args->files[0].filename, args->expression, args->flags);
+	run_matching(args);
 	free(args);
 }
