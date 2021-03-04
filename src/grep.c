@@ -30,6 +30,29 @@ struct arguments *set_expression(struct arguments *args, char *expression) {
 	return args;
 }
 
+struct opts *append_option(struct opts *head, char optc, int optn) {
+	struct opts *node = (struct opts *) error_checked_malloc(sizeof(struct opts));
+	node->optc = optc;
+	node->optn = optn;
+	node->next = NULL;
+	printf("Node: %d, %c\n", node->optn, node->optc);
+	
+	struct opts *seeker = head;
+	if ( seeker == NULL ) return node;
+	while ( seeker->next != NULL ) seeker = seeker->next;
+	seeker->next = node;
+	return head;
+}
+
+void free_options(struct opts *head) {
+	struct opts *node;
+	while ( head != NULL ) {
+		node = head;
+		head = head->next;
+		free(node);
+	}
+}
+
 struct arguments *parse_arguments(int argc, char **argv) {
 	struct arguments *args = (struct arguments *) error_checked_malloc(sizeof(struct arguments));
 	args->files = NULL; 
@@ -37,32 +60,36 @@ struct arguments *parse_arguments(int argc, char **argv) {
 	args->expression = NULL;
 	args->flags = 0;
 
-	size_t n_opts = (argc/2);
-	struct opts *options = (struct opts*) error_checked_malloc(n_opts * sizeof(*options)); 
-	for ( int i = 0; i < n_opts; i++ ) { options[i].optc = (char) 0x00; options[i].optn = 0; }
-	int opti = 0;
-	
+	struct opts *options = NULL;
+	int nopts = 0;
 	char *arg_ptr;
 	int n;
-	
+
 	for ( n = 1; n < argc; n++ ) {
 		arg_ptr = argv[n];
 		if ( arg_ptr != NULL ) {
 			if (*(arg_ptr++) == 0x2D ) {
 				if ( *arg_ptr == 0x2D ) arg_ptr++;
-				options[opti].optc = tolower(*arg_ptr);
-				options[opti].optn = n;
-				opti++;
+				options = append_option(options, tolower(*arg_ptr), n);
+				nopts++;
 			}
 		}
 	}		
 
+	struct opts *node = options;
+
 	// Add clause where opti == 0, parse arg1 into filename and arg2 into expression.
 	// If args->files == NULL, if args->expression == NULL.
-	for ( n = 0; n < opti; n++ ) {
-		int end_index = ( n+1 < opti ) ? options[n+1].optn : argc;
-		char c = options[n].optc;
-		for (int i = options[n].optn+1; i < end_index; i++ ) {
+	
+	int end_index = 0;
+	while(node != NULL) {
+		printf("%d, %d\n", node->optn, node->next == NULL);
+		if ( node->next == NULL ) end_index = argc;
+		else end_index = node->next->optn;
+		char c = node->optc;
+		int i = node->optn;
+		do {
+			printf("-- %d, %c", i, c);
 			switch ( (int) c ) {
 				case 0x66: // -f
 					args = append_file(args, argv[i]);
@@ -78,11 +105,13 @@ struct arguments *parse_arguments(int argc, char **argv) {
 					break;
 				case 0x63: // -c 
 					args->flags |= 0x04; // Set bit in flags for counting occurances.
-					break;
-			}		
-		}				
+					break;		
+			}
+		} while ( ++i < end_index );
+	
+		node = node->next;
 	}
-		
+
 	if ( argc < 3 ) {
 		fprintf(stdout, "No enough arguments, try again: greplike <expr> <filename>\n");
 		exit(0);
@@ -97,7 +126,7 @@ struct arguments *parse_arguments(int argc, char **argv) {
 		args = set_expression(args, argv[1]);
 	}
 	
-	free(options);
+	free_options(options);
 	return args;
 }
 

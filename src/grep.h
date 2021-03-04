@@ -10,6 +10,7 @@
 struct opts {
 	char optc;
 	int optn; 
+	struct opts *next;
 };
 
 struct file {
