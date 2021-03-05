@@ -5,12 +5,9 @@
 #define is_bit_set(val, posn) ((val) & (1 << (posn)))
 
 // TODO:
-// 1. Implement option parsing [DONE].
-// 2. Implement -n (print line number of each line with regex_match).
-// 3. Implement -i (print filename of files with lines returning positive matches).
-// 4. Implement -c (count matches and return this value).
-// 5. Add coloured printout of matching line up to word boundary.
-// 6. Find better way of implementing the above that works with multiple words (print the actual match) - e.g. return end pointer.
+// 1. Get regular expression matching to end only when we reach the end of the line pointer, rather than once a match is found
+//	(allows multiple matches per line).
+//	The above could be done by running regex_find in run_matching until the line is spent rather than until we find a match.
 
 struct arguments *append_file(struct arguments *args, char *filename) {
 	size_t filename_len = strlen(filename);

@@ -3,14 +3,8 @@
 #define COLOUR_STOP 		"\x1b[0m"
 
 // TODO:
-// 1. Verify grouping works with restricted inputs [DONE].
-// 2. Implement classes:
-//	Add class build functions (with parsing to return node if it exists) [DONE].
-//	Add and check class matching [DONE].
-//  Get class checking to work with valid regexs that follow (e.g. [A-Z][a-z]+s is valid but requires regex match to the rest of the string). [DONE]
-// 3. Implement input regex validation. [DONE] Note: this is not required insofar as checking group / class bounds.
-// 4. Implement tests.
-// 5. Find and fix inevitable memory leaks.
+// 1. Implement alternations (|).
+// 2. Find and fix inevitable memory leaks.
 
 expression_list *group = NULL;
 expression_list *class = NULL;
