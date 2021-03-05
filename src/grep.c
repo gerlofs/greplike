@@ -9,6 +9,8 @@
 // 2. Implement -n (print line number of each line with regex_match).
 // 3. Implement -i (print filename of files with lines returning positive matches).
 // 4. Implement -c (count matches and return this value).
+// 5. Add coloured printout of matching line up to word boundary.
+// 6. Find better way of implementing the above that works with multiple words (print the actual match) - e.g. return end pointer.
 
 struct arguments *append_file(struct arguments *args, char *filename) {
 	size_t filename_len = strlen(filename);
@@ -140,7 +142,7 @@ int run_matching(struct arguments *args) {
 	// Run regex match on lines from files using expression.
 	// Collect information and return is based upon the bits set in args->flags.
 	size_t match_count = 0;
-
+	
 	for ( int f = 0; f < args->num_files; f++ ) {
 		size_t line_number = 0;
 		FILE *fp = fopen(args->files[f].filename, "r");
@@ -150,20 +152,21 @@ int run_matching(struct arguments *args) {
 		}
 		
 		char *lb = NULL;
-	       	while ((lb=read_line(fp)) != NULL ) {
+	    while ((lb=read_line(fp)) != NULL ) {
 			line_number++;
-			if ( regex_find(args->expression, lb) ) {
+			int match = regex_find(args->expression, lb);
+			if ( match ) {
 				match_count++;
-				if ( is_bit_set(args->flags, 0) ) printf("%u ", line_number);
+				if ( is_bit_set(args->flags, 0) ) printf("Matched line: %u ", line_number);
 				else if ( is_bit_set(args->flags, 1) ) {
-					printf("%d ", f);
+					printf("Matched in: %s ", args->files[f].filename);
 					break;
 				}
 			}
 		}
 	}
 
-	if ( is_bit_set(args->flags, 2) ) printf("%u ", match_count);
+	if ( is_bit_set(args->flags, 2) ) printf("Matches: %u ", match_count);
 	printf("\n");
 
 	return 1;
@@ -175,7 +178,6 @@ int main(int argc, char **argv) {
 	// greplike -f <filename1>, <filename2>, <filename3> 
 	
 	struct arguments *args = parse_arguments(argc, argv);
-	printf("%d, %s, %s, %d\n", args->num_files, args->files[0].filename, args->expression, args->flags);
 	run_matching(args);
 	free(args);
 }
