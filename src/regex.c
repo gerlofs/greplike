@@ -27,6 +27,8 @@ int regex_find(char *regular_expression, char *line_text) {
 	
 	size_t line_len = strlen(line_text);
 	char *match_ptr = NULL;
+	int matched = 0;
+	
 	if ( line_text[line_len-1] == 0x0A ) line_text[line_len-1] = 0x00;
 	// If we have a caret, run the match once only from the string start 
 	// (only match in the next _n_ characters where n is strlen(regex+1)).
@@ -41,11 +43,12 @@ int regex_find(char *regular_expression, char *line_text) {
 		do { // Try to match the line, if the line ends, we return zero.
 			if ( (match_ptr = regex_match(regular_expression, line_text)) != NULL ) {
 				print_match(line_text, match_ptr);
-				return 1;
+				if ( !matched ) matched++;
 			}
 		} while ( *(line_text++) != 0x00 );
 	}
-	return 0;
+	
+	return matched;
 }
 
 char *regex_match(char *regular_expression, char *line_text) {
