@@ -2,8 +2,6 @@
 #include "alloc.h"
 #include "file.h"
 
-#define is_bit_set(val, posn) ((val) & (1 << (posn)))
-
 struct arguments *append_file(struct arguments *args, char *filename) {
 	/*	Assign and allocate filename string to args->files string array.
 	*	Increment the args->num-files counter.

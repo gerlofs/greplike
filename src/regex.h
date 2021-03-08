@@ -10,7 +10,7 @@
 typedef struct node {
 	char *expression;
 	size_t length;
-	int match_required;
+	short match_flags;
 	char match_char;
 	struct node *next;
 } expression_list;
