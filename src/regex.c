@@ -398,35 +398,57 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	*
 	*/
 	
+	/*
+		(ab|cd)
+		^ n_p
+			^ n_n_p
+			^ n_p
+	*/
+	
 	char *read_ptr = line_ptr;
+	// A bookmark for the start of the expression.
 	char *node_ptr = node->expression;
+	// The read pointer for the expression.
+	char *node_read_ptr = node_ptr;
+	
 	if (*regex_ptr == 0x2B || *regex_ptr == 0x2A) node->match_flags += 4;
 	int multi_match = is_bit_set(node->match_flags, 2);
+	int alternation = is_bit_set(node->match_flags, 1);
 	int reset;
 	unsigned length = node->length;
 	
+	short match = 0; // XX00: (1) Partially matching, we've matched within one check, (2) Fully matching, matching within a whole expression.
+	
 	// Two checks required: Alternation check (check read_ptr as normal, until it either does not match or we hit the alternation ).
 	// Normal check if there's no alternation. 
-	 while ( *read_ptr != 0x00 && *node_ptr != 0x00 ) {
-		reset = 0;
-		if ( *node_ptr == *read_ptr || *node_ptr == 0x2E ) {
-			node_ptr++;
-			if ( *node_ptr == 0x00 && multi_match ) node_ptr = node->expression;
-		} else if ( *node_ptr == 0x7C ) {
-			break; // Reaching a pipe means we've matched.
-		} else if ( is_bit_set(node->match_flags, 1) ) {
-			// Seek a pipe character to find the next expression to check.
-			unsigned new_length = 0;
-			for ( ; *node_ptr != 0x00 && *node_ptr != 0x7C ; node_ptr++,new_length++ );	
-			length = new_length;
-			node_ptr++;
-			read_ptr = line_ptr;
-			reset++;
-		} else break;
+	
+	 while ( *read_ptr != 0x00 && *node_read_ptr != 0x00 ) {
+		 printf("%c, %c\n", *read_ptr, *node_read_ptr);
+		 // Characters match or any character will match.
+		if ( *node_read_ptr == *read_ptr || *node_read_ptr == 0x2E ) {
+			match |= 1;
+			if ( *(++node_read_ptr) == 0x00 && multi_match ) node_read_ptr = node_ptr;
+		} else if ( alternation && *node_read_ptr == 0x7C ) {
+			if ( is_bit_set(match, 0) ) {
+				match |= 2;
+				break;
+			}
+		} else { // No match.
+			match &= ~(1);
+			if ( alternation ) {
+				for ( ; *node_read_ptr != 0x00 && *node_read_ptr != 0x7C; node_read_ptr++ );
+				node_read_ptr++;
+				reset++;
+			}
+			else break;
+			printf("Alternation: %s\n", node_read_ptr);
+		}
 		if ( !reset ) read_ptr++;
+		else reset = 0;
 	 }
 
-	
+	printf("%s, %d\n", read_ptr, match);
+	exit(0);
 	// If we need to match and we haven't matched (length of the read_ptr is less than it should be), return with no match.
 	if ( length == 0 ) return NULL;
 	
