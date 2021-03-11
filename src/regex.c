@@ -1,40 +1,61 @@
 #include "regex.h"
+#define ANSI_COLOUR_RED 	"\x1b[31m"
+#define COLOUR_STOP 		"\x1b[0m"
 
 // TODO:
-// 1. Verify grouping works with restricted inputs [DONE].
-// 2. Implement classes:
-//	Add class build functions (with parsing to return node if it exists) [DONE].
-//	Add and check class matching [DONE].
-//  Get class checking to work with valid regexs that follow (e.g. [A-Z][a-z]+s is valid but requires regex match to the rest of the string). [DONE]
-// 3. Implement input regex validation. [DONE] Note: this is not required insofar as checking group / class bounds.
-// 4. Implement tests.
-// 5. Find and fix inevitable memory leaks.
+// 1. Implement alternations (|). [Literals done, grouping in-progress].
+//		Two types of alternations should be possible, a single literal alternation:
+//			a|b should match to a or b, and (xyz|zyx) should match xyz or zyx. 
+// 2. Find and fix inevitable memory leaks.
 
 expression_list *group = NULL;
 expression_list *class = NULL;
 
+void print_match(char *line_text, char *match_ptr) {
+	/*
+	*	
+	*/
+
+	char *read_ptr = line_text;
+	printf("Match: " ANSI_COLOUR_RED);
+	for ( ; *read_ptr != 0x00 && read_ptr != match_ptr; read_ptr++ ) printf("%c",*read_ptr);
+	printf(COLOUR_STOP);
+	printf("%s\n", read_ptr);
+}
+
 int regex_find(char *regular_expression, char *line_text) {
 	/*  Find the position to start regular expression matching from.
 	 *  If the first character of the regular expression is a caret (^) we need to start searching 
-		from the start of the line and use the regular expression minus the first character (^) to match against.
+	 *	from the start of the line and use the regular expression minus the first character (^) to match against.
 	 *  Otherwise search the line character by character in a loop.
 	*/
 	
 	size_t line_len = strlen(line_text);
-	if ( line_text[line_len-1] == 0x0A ) line_text[line_len-1] = 0x00;
+	char *match_ptr = NULL;
+	int matched = 0;
 	
+	if ( line_text[line_len-1] == 0x0A ) line_text[line_len-1] = 0x00;
 	// If we have a caret, run the match once only from the string start 
 	// (only match in the next _n_ characters where n is strlen(regex+1)).
-	if ( regular_expression[0] == 0x5E) return regex_match(regular_expression+1, line_text);
-	else {
+	if ( regular_expression[0] == 0x5E) {
+		match_ptr = regex_match(regular_expression+1, line_text);
+		if ( match_ptr != NULL ) {
+			print_match(line_text, match_ptr);
+			return 1;
+		}
+	} else {
 		do { // Try to match the line, if the line ends, we return zero.
-			if ( regex_match(regular_expression, line_text) == 1 ) return 1;
+			if ( (match_ptr = regex_match(regular_expression, line_text)) != NULL ) {
+				print_match(line_text, match_ptr);
+				if ( !matched ) matched++;
+			}
 		} while ( *(line_text++) != 0x00 );
 	}
-	return 0;
+	
+	return matched;
 }
 
-int regex_match(char *regular_expression, char *line_text) {
+char *regex_match(char *regular_expression, char *line_text) {
 	/*	Take an input regular expression and an input line of text (usually from a file).
 	*	The first and second characters of the regular expression pointer determines the how to parse and check the line.
 	*		[0] == $ (0x24) || \0 (0x00) checks the regular expression and line text are both empty.
@@ -49,21 +70,32 @@ int regex_match(char *regular_expression, char *line_text) {
 	*/
 	
 	char current_char = regular_expression[0]; char next_char = regular_expression[1];
-	
 	// If current regex char is $ and the next regex char is a NULL, check we've exhausted the line_text as well.
-	if ( current_char == 0x24 && next_char == 0x00 ) return (*line_text == 0x00);
+	if ( current_char == 0x24 && next_char == 0x00 && *line_text == 0x00) { 
+		return line_text;
+	}
 	// If we've exhausted the regex pattern, we've matched.
-	else if ( current_char == 0x00 ) return 1;
+	else if ( current_char == 0x00 ) { 
+		return line_text;
+	}
 	// If we have an un-escaped bracket, we're grouping.
 	else if ( current_char == 0x28 && *(regular_expression-1) != 0x5C) {
 		expression_list *node = create_group(++regular_expression);
-		regular_expression += (node->length)+1;
-		return match_group(node, regular_expression, line_text);	
+		unsigned offset = 0;
+		while ( *(regular_expression+offset) != 0x29) { offset++; }
+		return match_group(node, regular_expression+offset, line_text);	
 	}
+	// If we have an un-escaped square-bracket, there's a class.
 	else if ( current_char == 0x5B && *(regular_expression-1) != 0x5C) {
 		expression_list *node = create_class(++regular_expression);
 		while ( *(regular_expression++) != 0x5D );
 		return match_class(node, regular_expression, line_text);
+	}
+	// A character alternation is present, if regex+0 matches line+0 then we're good, 
+	//		otherwise, try to match to the other possible character.
+	else if ( current_char != 0x5C && next_char == 0x7C ) {
+		if ( *line_text != current_char ) return regex_match(regular_expression+2, line_text);
+		else return regex_match(regular_expression+3, line_text+1);
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
 	else if ( next_char == 0x3F ) {
@@ -71,23 +103,25 @@ int regex_match(char *regular_expression, char *line_text) {
 		else return regex_match(regular_expression+2, line_text);
 	}
 	// If there's a 'one or more' or a 'none or more' operator we start a different expression check (see func).
-	else if ( next_char == 0x2A || next_char == 0x2B ) return multi_match_single_char((next_char == 0x2B), current_char, regular_expression+2, line_text);
+	else if ( next_char == 0x2A || next_char == 0x2B ) {
+		return multi_match_single_char((next_char == 0x2B), current_char, regular_expression+2, line_text);
+	}		
 	// If we're not at line end and we can match any character (besides line break) OR the char matches the text, continue matching (recurr).
 	// Additionally, if the current regex character is a backslash, we ignore it.
-	else if ( (current_char == 0x5C ) || (*line_text != 0x00 && ( current_char == 0x2E || current_char == *line_text)) )
+	else if ( (current_char == 0x5C ) || (*line_text != 0x00 && ( current_char == 0x2E || current_char == *line_text)) ) {
 		return regex_match(regular_expression+1, line_text+1);
-	
-	// If we reach the end of the regex matching without returning True (1), we've failed to match.
-	return 0;
+	}
+	// If we reach the end of the regex matching without returning, we've failed to match.
+	return NULL;
 }
 
-int multi_match_single_char(unsigned match_n, char to_match, char *regular_expression, char *line_text) {		
+char *multi_match_single_char(unsigned match_n, char to_match, char *regular_expression, char *line_text) {		
 	/*	
 	*	Select all characters in the line_text string that matches zero or more times, using leftmost longest matching.
 	*	Starting from the position in the line string that *should* contain a match, increment the line pointer as long
 	*		as there IS a match OR the regular expression character to match is a period/dot (match anything) AND
 	*		we haven't reached the end of the line.
-et noswapfile	*	Once we have an end position (where we know there is no longer a match), work backwards to ensure the last
+	*	Once we have an end position (where we know there is no longer a match), work backwards to ensure the last
 	*		character of this partial line is next regular expression character.
 	*	If none of the above fail, we can return true (found a match) if, and only if, we are matching against a 
 	*		'zero or more' clause (* operator), otherwise we have to check there really is a match by comparing the
@@ -105,14 +139,15 @@ et noswapfile	*	Once we have an end position (where we know there is no longer a
 	// Run through the remaining text identifying where we stop matching (file end, no char match, no '.' operator).
 	for (text_ptr = line_text; *text_ptr != 0x00 && (*text_ptr == to_match || to_match == 0x2E); text_ptr++); 
 	
-	if ( match_n > 0 && text_ptr == line_text ) return 0; // If *, ignore this, otherwise check we have actually matched.
+	if ( match_n > 0 && text_ptr == line_text ) return NULL; // If *, ignore this, otherwise check we have actually matched.
 	
+	char *match_ptr = NULL;
 	do {
 		// Match the new string pointer to the regular expression character.
-		if ( regex_match(regular_expression, text_ptr)) return 1;
+		if ( (match_ptr=regex_match(regular_expression, text_ptr)) != NULL ) return match_ptr;
 	} while (text_ptr-- > line_text); // Move backwards until we reach the 'start' of the text.
 	
-	return 0;
+	return NULL;
 }
 
 expression_list *create_class(char *regex_ptr) {
@@ -183,7 +218,7 @@ expression_list *create_class(char *regex_ptr) {
 	ec->expression = class_ptr;
 	ec->length = strlen(class_ptr);
 	read_ptr++;
-	ec->match_required = !(*read_ptr == 0x2A || *read_ptr == 0x3F);
+	ec->match_flags = !(*read_ptr == 0x2A || *read_ptr == 0x3F);
 	ec->match_char = *read_ptr;
 
 	if ( class == NULL ) class = ec;
@@ -216,7 +251,7 @@ char *generate_range(char *class_ptr, size_t current_len, char a, char b) {
 	return class_ptr;
 }
 
-int match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
+char *match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 	/*    Struct contains expression (all the characters that could match) as well 
 	*         as a boolean to determine whether we need to match against the chars
 	*         or not.  
@@ -238,15 +273,16 @@ int match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 		} else check_ptr++;
 	}
 
-	if ( node->match_required && read_ptr == line_ptr ) return 0;
+	if ( is_bit_set(node->match_flags, 0) && read_ptr == line_ptr ) return NULL;
 		
 	if ( match_multiple || *regex_ptr == 0x3F ) regex_ptr++;
 
+	char *match_ptr = NULL;
 	do { 
-		if ( regex_match(regex_ptr, read_ptr) ) return 1;
+		if ( (match_ptr=regex_match(regex_ptr, read_ptr)) ) return match_ptr;
 	} while ( read_ptr-- > line_ptr);
 	
-	return 0;
+	return NULL;
 }
 
 /* GROUPS (Linked List helpers) */
@@ -255,7 +291,7 @@ expression_list *create_node() {
 	expression_list *node = (expression_list *) error_checked_malloc(sizeof(expression_list));
 	node->expression= NULL;
 	node->length = 0;
-	node->match_required = 0;
+	node->match_flags = 0;
 	node->next = NULL;
 	return node;
 }
@@ -301,11 +337,15 @@ expression_list *create_group(char *regex_ptr) {
 		else node = node->next;
 	}
 	
+	int alternation_check = 0;
 	// If the node isn't populated to begin with (no groups), parse the new group string.
-	if ( read_ptr == regex_ptr ) for ( ; *read_ptr != 0x29; read_ptr++) {
-		if ( *read_ptr == 0x00 ) {
-			fprintf(stderr, "Invalid regex provided, null byte found instead of end parenthesis");
-			exit(0);
+	if ( read_ptr == regex_ptr ) {
+		for ( ; *read_ptr != 0x29; read_ptr++) {
+			if ( *read_ptr == 0x00 ) {
+				fprintf(stderr, "Invalid regex provided, null byte found instead of end parenthesis");
+				exit(0);
+			}
+			if ( !alternation_check && *read_ptr == 0x7C ) alternation_check++;
 		}
 	}
 
@@ -316,11 +356,12 @@ expression_list *create_group(char *regex_ptr) {
 	node->expression = (char *) error_checked_malloc(group_len+1);
 	strncpy(node->expression, regex_ptr, group_len);
 	node->expression[group_len] = (char) 0x00;
-	node->length = strlen(node->expression);
 	// If char immediately following the closed parenthesis is a * or ?, we do not need to match, set to zero.
 	// Otherwise set to 1 and force a match during group matching.
-	node->match_required = (*(++read_ptr) != 0x2A && *read_ptr != 0x3F);
+	node->match_flags = (*(++read_ptr) != 0x2A && *read_ptr != 0x3F);
+	if ( alternation_check ) node->match_flags += 2;
 	node->match_char = *read_ptr;
+	node->length = strlen(node->expression);
 	if ( group == NULL ) group = node;
 	else append_node(group, node);
 	return node;
@@ -339,7 +380,7 @@ void group_teardown() {
 	group = NULL;
 }
 
-int match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
+char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	/*	Match a group, a set of literal characters - metacharacters are not supported - within a
 	*		set of parentheses. e.g. (abc) followed by an optional metacharacter that determines 
 	*		how many times, if at all the group should be matched. 
@@ -357,29 +398,72 @@ int match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	*
 	*/
 	
-	char *read_ptr;
-	char *node_ptr = node->expression;
-	int match_multiple = (*regex_ptr == 0x2B || *regex_ptr == 0x2A);
-		
-	// Parse, the resulting pointer position (read_ptr) on a good day will contain the last character to match ((abd)+d gives d from 'abcd')
-	for (read_ptr = line_ptr; *read_ptr != 0x00 && (*read_ptr == *node_ptr || *node_ptr == 0x2E); read_ptr++) {
-		if ( *node_ptr == 0x00 && !match_multiple ) {
-			read_ptr++; break;
-		}
-		else if ( *(node_ptr+1) == 0x00 ) node_ptr -= (node->length-1); // Reset the group pointer.
-		else node_ptr++;
-	}
-		
-	// If we need to match and we haven't matched (length of the read_ptr is less than it should be), return with no match.
-	if ( node->match_required && (read_ptr-line_ptr) < node->length) return 0;
+	/*
+		(ab|cd)
+		^ n_p
+			^ n_n_p
+			^ n_p
+	*/
 	
+	char *read_ptr = line_ptr;
+	// A bookmark for the start of the expression.
+	char *node_ptr = node->expression;
+	// The read pointer for the expression.
+	char *node_read_ptr = node_ptr;
+	
+	if (*regex_ptr == 0x2B || *regex_ptr == 0x2A) node->match_flags += 4;
+	int multi_match = is_bit_set(node->match_flags, 2);
+	int alternation = is_bit_set(node->match_flags, 1);
+	int reset;
+	unsigned length = node->length;
+	
+	short match = 0; // XX00: (1) Partially matching, we've matched within one check, (2) Fully matching, matching within a whole expression.
+	
+	// Two checks required: Alternation check (check read_ptr as normal, until it either does not match or we hit the alternation ).
+	// Normal check if there's no alternation. 
+	
+	 while ( *read_ptr != 0x00 && *node_read_ptr != 0x00 ) {
+		 printf("%c, %c\n", *read_ptr, *node_read_ptr);
+		 // Characters match or any character will match.
+		if ( *node_read_ptr == *read_ptr || *node_read_ptr == 0x2E ) {
+			match |= 1;
+			if ( *(++node_read_ptr) == 0x00 && multi_match ) node_read_ptr = node_ptr;
+		} else if ( alternation && *node_read_ptr == 0x7C ) {
+			if ( is_bit_set(match, 0) ) {
+				match |= 2;
+				break;
+			}
+		} else { // No match.
+			match &= ~(1);
+			if ( alternation ) {
+				for ( ; *node_read_ptr != 0x00 && *node_read_ptr != 0x7C; node_read_ptr++ );
+				node_read_ptr++;
+				reset++;
+			}
+			else break;
+			printf("Alternation: %s\n", node_read_ptr);
+		}
+		if ( !reset ) read_ptr++;
+		else reset = 0;
+	 }
+
+	printf("%s, %d\n", read_ptr, match);
+	exit(0);
+	// If we need to match and we haven't matched (length of the read_ptr is less than it should be), return with no match.
+	if ( length == 0 ) return NULL;
+	
+	printf("%s\n%d vs. %d\n", node_ptr, length, read_ptr-line_ptr);
+	
+	if ( is_bit_set(node->match_flags, 0) && (read_ptr-line_ptr) < length) return NULL;
+	else if ( *regex_ptr == 0x00 ) return read_ptr;
 	// If there is a metacharacter proceeding the closing parenthesis, we need to increment to avoid trying to match it.
 	// Note: Not having a metacharacter is entirely valid so we have to check for them here before continuing.
 	regex_ptr += ( *regex_ptr == 0x2B || *regex_ptr == 0x2A || *regex_ptr == 0x3F );
-
+	
+	char *match_ptr = NULL;
 	do { // Match similarly to the single character match in multi_match_single_char.
-		if ( regex_match(regex_ptr, read_ptr)) return 1;
+		if ( (match_ptr=regex_match(regex_ptr, read_ptr)) ) return match_ptr;
 	} while (read_ptr-- > line_ptr);
 	
-	return 0;
+	return NULL;
 }

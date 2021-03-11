@@ -1,3 +1,5 @@
+/* Grep.h */
+
 #ifndef GREP_H
 #define GREP_H
 
@@ -32,5 +34,10 @@ struct arguments {
 };
 
 struct arguments *append_file(struct arguments*, char*);
+struct arguments *set_expression(struct arguments*, char*);
+struct opts *append_option(struct opts*, char, int);
+struct arguments *parse_arguments(int, char**);
+int run_matching(struct arguments*);
+void free_options(struct opts*);
 
 #endif /* GREP_H */
