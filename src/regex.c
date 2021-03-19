@@ -47,7 +47,8 @@ int regex_find(char *regular_expression, char *line_text) {
 		do { // Try to match the line, if the line ends, we return zero.
 			if ( (match_ptr = regex_match(regular_expression, line_text)) != NULL ) {
 				print_match(line_text, match_ptr);
-				if ( !matched ) matched++;
+				line_text = match_ptr;
+				matched |= 1;	
 			}
 		} while ( *(line_text++) != 0x00 );
 	}
@@ -81,9 +82,8 @@ char *regex_match(char *regular_expression, char *line_text) {
 	// If we have an un-escaped bracket, we're grouping.
 	else if ( current_char == 0x28 && *(regular_expression-1) != 0x5C) {
 		expression_list *node = create_group(++regular_expression);
-		unsigned offset = 0;
-		while ( *(regular_expression+offset) != 0x29) { offset++; }
-		return match_group(node, regular_expression+offset, line_text);	
+		while ( *(regular_expression++) != 0x29 );
+		return match_group(node, regular_expression, line_text);	
 	}
 	// If we have an un-escaped square-bracket, there's a class.
 	else if ( current_char == 0x5B && *(regular_expression-1) != 0x5C) {
@@ -377,6 +377,7 @@ void group_teardown() {
 			head = next;
 	}
 	
+	
 	group = NULL;
 }
 
@@ -405,6 +406,66 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 			^ n_p
 	*/
 	
+	char *read_ptr = line_ptr; 
+	char *node_ptr = node->expression;
+	//int reset;
+	short match_flags = 0; // Contains two flags, an inside match (1) and an outside match (2).
+	int single_match = 0;
+	// TODO: Move this to the group creation and document.
+	if (*regex_ptr == 0x2B || *regex_ptr == 0x2A) node->match_flags += 4;
+	int alt = is_bit_set(node->match_flags, 1);
+	int multi = is_bit_set(node->match_flags, 2);
+	int req = is_bit_set(node->match_flags, 0);
+
+	while ( match_flags < 2 && *read_ptr != 0x00 && *node_ptr != 0x00 ) {
+		// Store the current pointer position for comparison.
+		char *p_store = node_ptr;
+		
+		// Are we matching a single character?
+		single_match = (*read_ptr == *node_ptr);
+		// Set bit conditionally.
+		match_flags ^= (-single_match ^ match_flags) & 1; 
+		// Move the pointers 
+		read_ptr += single_match;
+		node_ptr += single_match;
+		//reset |= (~(single_match) & 1);
+		//
+		if ( p_store == node_ptr ) { // No match.
+			printf("%s, %s, %d\n", read_ptr, node_ptr, alt);
+			if ( alt ) {
+				for ( ; *node_ptr != 0x00 && *node_ptr != 0x7C; node_ptr++ );
+				read_ptr = line_ptr;
+				node_ptr++; // Remove the pipe.
+			} else break;
+		} 
+		
+		// Are we at an end-point?
+		int isend = (*node_ptr == 0x00 || *node_ptr == 0x7C );
+		// Set match_flags to 3 if we're matched and the next char is a pipe or end point.
+		single_match = (single_match && isend);
+		match_flags ^= (-single_match ^ match_flags) & 2;
+		if ( isend && multi ) read_ptr = line_ptr;
+	}
+
+	printf("DEBUG: %s, %s, %d\n%s\n", read_ptr, line_ptr, match_flags, regex_ptr);
+	// TODO: Return read_ptr NOT regex_ptr.	
+	if ( req && ( match_flags != 3 ) ) return NULL;
+	else if ( *regex_ptr == 0x00 ) {
+		if ( !req || ( req && match_flags == 3 ) ) return read_ptr;
+	} else regex_ptr++;
+
+	printf("EXIT: %s\n", regex_ptr);
+	exit(1);
+
+	char *match_ptr = NULL;
+	do { // Match similarly to the single character match in multi_match_single_char.
+		if ( (match_ptr=regex_match(regex_ptr, read_ptr)) ) return match_ptr;
+	} while (read_ptr-- > line_ptr);
+	
+	return NULL;	
+
+	/*
+
 	char *read_ptr = line_ptr;
 	// A bookmark for the start of the expression.
 	char *node_ptr = node->expression;
@@ -460,10 +521,7 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	// Note: Not having a metacharacter is entirely valid so we have to check for them here before continuing.
 	regex_ptr += ( *regex_ptr == 0x2B || *regex_ptr == 0x2A || *regex_ptr == 0x3F );
 	
-	char *match_ptr = NULL;
-	do { // Match similarly to the single character match in multi_match_single_char.
-		if ( (match_ptr=regex_match(regex_ptr, read_ptr)) ) return match_ptr;
-	} while (read_ptr-- > line_ptr);
-	
+
 	return NULL;
+	*/
 }
