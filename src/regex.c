@@ -27,7 +27,7 @@ int regex_find(char *regular_expression, char *line_text) {
 	/*  Find the position to start regular expression matching from.
 	 *  If the first character of the regular expression is a caret (^) we need to start searching 
 	 *	from the start of the line and use the regular expression minus the first character (^) to match against.
-	 *  Otherwise search the line character by character in a loop.
+	 *  Other_charwise search the line character by character in a loop.
 	*/
 	
 	size_t line_len = strlen(line_text);
@@ -358,8 +358,15 @@ expression_list *create_group(char *regex_ptr) {
 	node->expression[group_len] = (char) 0x00;
 	// If char immediately following the closed parenthesis is a * or ?, we do not need to match, set to zero.
 	// Otherwise set to 1 and force a match during group matching.
-	node->match_flags = (*(++read_ptr) != 0x2A && *read_ptr != 0x3F);
-	if ( alternation_check ) node->match_flags += 2;
+
+	// Get to the end of the group to find any optional metacharacters.
+	for (; *read_ptr != 0x00 && *(read_ptr-1) != 0x29; read_ptr++ );
+	uint8_t flags = 1 * ( *read_ptr != 0x2A && *read_ptr != 0x3F ) + 
+			2 * ( *read_ptr == 0x2A || *read_ptr == 0x2B)  +
+			4 * ( alternation_check);
+		
+	
+	node->match_flags = flags;
 	node->match_char = *read_ptr;
 	node->length = strlen(node->expression);
 	if ( group == NULL ) group = node;
@@ -400,7 +407,8 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	*/
 	
 	/*
-		(ab|cd)
+		TODO: Implement system that checks alternations in tandem, additionally check whole line from start point.
+	   (ab|cd)
 		^ n_p
 			^ n_n_p
 			^ n_p
@@ -408,16 +416,18 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	
 	char *read_ptr = line_ptr; 
 	char *node_ptr = node->expression;
-	//int reset;
-	short match_flags = 0; // Contains two flags, an inside match (1) and an outside match (2).
+	uint8_t match_flags = 0; // Contains two flags, an inside match (1) and an outside match (2).
+	 /* Match flag bits:
+	 *	0: Partially matching within an alternation.
+	 *	1: Fully matching
+	 */
+	
 	int single_match = 0;
-	// TODO: Move this to the group creation and document.
-	if (*regex_ptr == 0x2B || *regex_ptr == 0x2A) node->match_flags += 4;
-	int alt = is_bit_set(node->match_flags, 1);
-	int multi = is_bit_set(node->match_flags, 2);
+	int alt = is_bit_set(node->match_flags, 2);
+	int multi = is_bit_set(node->match_flags, 1);
 	int req = is_bit_set(node->match_flags, 0);
 
-	while ( match_flags < 2 && *read_ptr != 0x00 && *node_ptr != 0x00 ) {
+	while ( match_flags < 3 && *read_ptr != 0x00 && *node_ptr != 0x00 ) {	
 		// Store the current pointer position for comparison.
 		char *p_store = node_ptr;
 		
@@ -428,34 +438,28 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 		// Move the pointers 
 		read_ptr += single_match;
 		node_ptr += single_match;
-		//reset |= (~(single_match) & 1);
-		//
 		if ( p_store == node_ptr ) { // No match.
-			printf("%s, %s, %d\n", read_ptr, node_ptr, alt);
 			if ( alt ) {
-				for ( ; *node_ptr != 0x00 && *node_ptr != 0x7C; node_ptr++ );
+				for ( ; *node_ptr != 0x00 && *node_ptr != 0x7C; node_ptr++);
+				node_ptr++; // Remove pipe, can't be done inside the for loop.
 				read_ptr = line_ptr;
-				node_ptr++; // Remove the pipe.
 			} else break;
-		} 
+		}
 		
 		// Are we at an end-point?
 		int isend = (*node_ptr == 0x00 || *node_ptr == 0x7C );
 		// Set match_flags to 3 if we're matched and the next char is a pipe or end point.
 		single_match = (single_match && isend);
 		match_flags ^= (-single_match ^ match_flags) & 2;
-		if ( isend && multi ) read_ptr = line_ptr;
+		if ( multi && isend ) node_ptr = node->expression;
 	}
 
-	printf("DEBUG: %s, %s, %d\n%s\n", read_ptr, line_ptr, match_flags, regex_ptr);
-	// TODO: Return read_ptr NOT regex_ptr.	
-	if ( req && ( match_flags != 3 ) ) return NULL;
+	if ( req && ( match_flags < 3 ) ) return NULL;
 	else if ( *regex_ptr == 0x00 ) {
 		if ( !req || ( req && match_flags == 3 ) ) return read_ptr;
-	} else regex_ptr++;
-
-	printf("EXIT: %s\n", regex_ptr);
-	exit(1);
+	}
+	
+	regex_ptr += (*regex_ptr == 0x2A || *regex_ptr == 0x2B || *regex_ptr == 0x3F);
 
 	char *match_ptr = NULL;
 	do { // Match similarly to the single character match in multi_match_single_char.
@@ -464,64 +468,4 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	
 	return NULL;	
 
-	/*
-
-	char *read_ptr = line_ptr;
-	// A bookmark for the start of the expression.
-	char *node_ptr = node->expression;
-	// The read pointer for the expression.
-	char *node_read_ptr = node_ptr;
-	
-	if (*regex_ptr == 0x2B || *regex_ptr == 0x2A) node->match_flags += 4;
-	int multi_match = is_bit_set(node->match_flags, 2);
-	int alternation = is_bit_set(node->match_flags, 1);
-	int reset;
-	unsigned length = node->length;
-	
-	short match = 0; // XX00: (1) Partially matching, we've matched within one check, (2) Fully matching, matching within a whole expression.
-	
-	// Two checks required: Alternation check (check read_ptr as normal, until it either does not match or we hit the alternation ).
-	// Normal check if there's no alternation. 
-	
-	 while ( *read_ptr != 0x00 && *node_read_ptr != 0x00 ) {
-		 printf("%c, %c\n", *read_ptr, *node_read_ptr);
-		 // Characters match or any character will match.
-		if ( *node_read_ptr == *read_ptr || *node_read_ptr == 0x2E ) {
-			match |= 1;
-			if ( *(++node_read_ptr) == 0x00 && multi_match ) node_read_ptr = node_ptr;
-		} else if ( alternation && *node_read_ptr == 0x7C ) {
-			if ( is_bit_set(match, 0) ) {
-				match |= 2;
-				break;
-			}
-		} else { // No match.
-			match &= ~(1);
-			if ( alternation ) {
-				for ( ; *node_read_ptr != 0x00 && *node_read_ptr != 0x7C; node_read_ptr++ );
-				node_read_ptr++;
-				reset++;
-			}
-			else break;
-			printf("Alternation: %s\n", node_read_ptr);
-		}
-		if ( !reset ) read_ptr++;
-		else reset = 0;
-	 }
-
-	printf("%s, %d\n", read_ptr, match);
-	exit(0);
-	// If we need to match and we haven't matched (length of the read_ptr is less than it should be), return with no match.
-	if ( length == 0 ) return NULL;
-	
-	printf("%s\n%d vs. %d\n", node_ptr, length, read_ptr-line_ptr);
-	
-	if ( is_bit_set(node->match_flags, 0) && (read_ptr-line_ptr) < length) return NULL;
-	else if ( *regex_ptr == 0x00 ) return read_ptr;
-	// If there is a metacharacter proceeding the closing parenthesis, we need to increment to avoid trying to match it.
-	// Note: Not having a metacharacter is entirely valid so we have to check for them here before continuing.
-	regex_ptr += ( *regex_ptr == 0x2B || *regex_ptr == 0x2A || *regex_ptr == 0x3F );
-	
-
-	return NULL;
-	*/
 }

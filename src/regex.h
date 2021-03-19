@@ -4,13 +4,20 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h> // For single byte short type.
 #include "alloc.h"
+
+ /* Match flags:
+ *	0: Match required.
+ *	1: Multiple matches possible (* or +)
+ *	2: Alternations present (reserved for groups). 
+ */
 
 // Linked list structure containing groups within the base expression.
 typedef struct node {
 	char *expression;
 	size_t length;
-	short match_flags;
+	uint8_t match_flags; 
 	char match_char;
 	struct node *next;
 } expression_list;

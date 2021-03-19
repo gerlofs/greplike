@@ -31,11 +31,10 @@ struct arguments *set_expression(struct arguments *args, char *expression) {
 	*	Null-terminate args->expression and return the args struct
 	*		containing the new expression string.
 	*/
-	
 	size_t e_len = strlen(expression);
-	args->expression = (char *) error_checked_malloc(e_len);
+	args->expression = (char *) error_checked_malloc(e_len+1);
 	strncpy(args->expression, expression, e_len);
-	args->expression[e_len] = 0x00;	
+	args->expression[e_len] = (char) 0x00;	
 	return args;
 }
 
@@ -105,6 +104,7 @@ struct arguments *parse_arguments(int argc, char **argv) {
 	*	greplike <expr> <filename> [Base case]
 	*	greplike -f <filename1> <filename2> -e <expression> -n [Grep f1 and f2 with
 	*		e and print out the line numbers of each match.
+	*
 	*/
 	
 	if ( argc < 3 ) {
@@ -160,7 +160,6 @@ struct arguments *parse_arguments(int argc, char **argv) {
 		}
 
 		for (;i < end_index;i++) {
-			printf("%d, %d, %s\n", i, end_index, argv[i]);
 			switch ( (int) c ) {
 				case 0x66: // -f
 					args = append_file(args, argv[i]);
@@ -216,7 +215,8 @@ int run_matching(struct arguments *args) {
 		}
 		
 		char *lb = NULL;
-	    while ((lb=read_line(fp)) != NULL ) {
+	    
+	while ((lb=read_line(fp)) != NULL ) {
 			line_number++;
 			int match = regex_find(args->expression, lb);
 			if ( match ) {
