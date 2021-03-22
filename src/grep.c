@@ -146,6 +146,7 @@ struct arguments *parse_arguments(int argc, char **argv) {
 		else end_index = node->next->optn;
 		char c = node->optc;
 		int i = node->optn+1;
+		int invalid_opt = 0;
 		if ( i == end_index ) {
 			switch ( (int) c ) {	
 				case 0x6E: // -n 
@@ -157,10 +158,14 @@ struct arguments *parse_arguments(int argc, char **argv) {
 				case 0x63: // -c 
 					args->flags |= 0x04; // Set bit in flags for counting occurances.
 					break;
+				default:
+					invalid_opt++;
+
 			}	
 		}
 
 		for (;i < end_index;i++) {
+			printf("DEBUG: %c\n", c);
 			switch ( (int) c ) {
 				case 0x66: // -f
 					args = append_file(args, argv[i]);
@@ -168,9 +173,17 @@ struct arguments *parse_arguments(int argc, char **argv) {
 				case 0x65: // -e
 					args = set_expression(args, argv[i]);
 					break;	
+				default:
+					invalid_opt++;
 			}
 		}
-	
+
+		if ( invalid_opt ) {
+			fprintf(stderr, "Invalid option %c, check README.md for information on valid options\n", c);
+			exit(1);
+		}
+
+		invalid_opt = 0;
 		node = node->next;
 	}
 	
