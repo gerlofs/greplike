@@ -1,6 +1,7 @@
 #include "grep.h"
 #include "alloc.h"
 #include "file.h"
+#include "regex.h"
 
 struct arguments *append_file(struct arguments *args, char *filename) {
 	/*	Assign and allocate filename string to args->files string array.
@@ -109,7 +110,7 @@ struct arguments *parse_arguments(int argc, char **argv) {
 	
 	if ( argc < 3 ) {
 		fprintf(stdout, "No enough arguments, try again: greplike <expr> <filename>\n");
-		exit(0);
+		exit(1);
 	}
 	
 	struct arguments *args = (struct arguments *) error_checked_malloc(sizeof(struct arguments));
@@ -208,12 +209,7 @@ int run_matching(struct arguments *args) {
 	
 	for ( int f = 0; f < args->num_files; f++ ) {
 		unsigned line_number = 0;
-		FILE *fp = fopen(args->files[f].filename, "r");
-		if ( fp == NULL ) {
-			fprintf(stderr, "Could not open file %s\n", args->files[f].filename);
-			exit(0);
-		}
-		
+		FILE *fp = open_file(args->files[f].filename);
 		char *lb = NULL;
 	    
 	while ((lb=read_line(fp)) != NULL ) {

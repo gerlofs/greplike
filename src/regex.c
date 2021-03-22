@@ -164,7 +164,7 @@ expression_list *create_class(char *regex_ptr) {
 
 	if (!regex_len) { // Check for an empty expression, can cause int rollover otherwise.
 		fprintf(stderr, "Empty regular expression found, check that the input expression is valid.\n");
-		exit(0);
+		exit(1);
 	}
 
 	// Pre-check the class list for a matching class. 
@@ -207,7 +207,7 @@ expression_list *create_class(char *regex_ptr) {
 	while ((valid_expr |= (*(read_ptr++) == 0x5D)) <= 0 && *read_ptr != 0x00);
 	if ( !valid_expr ) {
 		fprintf(stdout, "No matching ] found for given class: %s\n", regex_ptr);
-		exit(0);
+		exit(1);
 	}
 	
 	// If there's no matching node, we need to create one, reuse the class_ptr and allocate to it.
@@ -359,7 +359,7 @@ expression_list *create_group(char *regex_ptr) {
 		for ( ; *read_ptr != 0x29; read_ptr++) {
 			if ( *read_ptr == 0x00 ) {
 				fprintf(stderr, "No closed parentheses found, check the expression is valid\n");
-				exit(0);
+				exit(1);
 			}
 			if ( !alternation_check && *read_ptr == 0x7C ) alternation_check++;
 		}
