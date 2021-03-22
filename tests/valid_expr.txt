@@ -1,0 +1,18 @@
+the
+to
+end
+on
+an
+but
+Effect
+^Extreme?
+^O
+invitation.$
+al$
+highl?y?$
+[A-Z]
+(another)+ d
+(another)* demands
+(no)* demands
+[a-z]+ demands
+[A-Za-z] (six|seven|eight)
