@@ -158,8 +158,14 @@ expression_list *create_class(char *regex_ptr) {
 	*         the rest of the regular expression to check against (including the optional
 	*         metacharacter). 
 	*/ 
+	
 	char *read_ptr = regex_ptr; // Starts from the character following the opening bracket.
 	size_t regex_len = strlen(regex_ptr);
+
+	if (!regex_len) { // Check for an empty expression, can cause int rollover otherwise.
+		fprintf(stdout, "Empty regular expression found, check that the input expression is valid.\n");
+		exit(0);
+	}
 
 	// Pre-check the class list for a matching class. 
 	expression_list *head = class;
@@ -192,6 +198,16 @@ expression_list *create_class(char *regex_ptr) {
 		}
 		
 		head = head->next;			
+	}
+	
+	// Parse and check there is an end bracket. 
+	int valid_expr = 0;
+	read_ptr = regex_ptr;
+		printf("%s\n", read_ptr);
+	while ((valid_expr |= (*(read_ptr++) == 0x5D)) <= 0 && *read_ptr != 0x00);
+	if ( !valid_expr ) {
+		fprintf(stdout, "No matching ] found for given class: %s\n", regex_ptr);
+		exit(0);
 	}
 	
 	// If there's no matching node, we need to create one, reuse the class_ptr and allocate to it.
