@@ -163,7 +163,7 @@ expression_list *create_class(char *regex_ptr) {
 	size_t regex_len = strlen(regex_ptr);
 
 	if (!regex_len) { // Check for an empty expression, can cause int rollover otherwise.
-		fprintf(stdout, "Empty regular expression found, check that the input expression is valid.\n");
+		fprintf(stderr, "Empty regular expression found, check that the input expression is valid.\n");
 		exit(0);
 	}
 
@@ -358,7 +358,7 @@ expression_list *create_group(char *regex_ptr) {
 	if ( read_ptr == regex_ptr ) {
 		for ( ; *read_ptr != 0x29; read_ptr++) {
 			if ( *read_ptr == 0x00 ) {
-				fprintf(stderr, "Invalid regex provided, null byte found instead of end parenthesis");
+				fprintf(stderr, "No closed parentheses found, check the expression is valid\n");
 				exit(0);
 			}
 			if ( !alternation_check && *read_ptr == 0x7C ) alternation_check++;
@@ -366,7 +366,7 @@ expression_list *create_group(char *regex_ptr) {
 	}
 
 	size_t group_len = (read_ptr - regex_ptr); // Size of group in bytes.
-	
+
 	// Assign, allocate, and populate group linked list node with the group expression string.
 	node = create_node();
 	node->expression = (char *) error_checked_malloc(group_len+1);
