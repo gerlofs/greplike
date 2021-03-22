@@ -213,6 +213,8 @@ int run_matching(struct arguments *args) {
 	*
 	* TODO: Push file matches to an array of indeces for printing at the end
 	*		rather than during a match.
+	* TODO: Keep track of whether we're matching or not, return this to be returned
+	* 	by main.
 	*/
 	
 	unsigned match_count = 0;
