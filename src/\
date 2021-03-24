@@ -465,6 +465,7 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 			if ( alt ) {
 				for ( ; *node_ptr != 0x00 && *node_ptr != 0x7C; node_ptr++);
 				node_ptr++; // Remove pipe, can't be done inside the for loop.
+				read_ptr = line_ptr;
 			} else break;
 		}
 		
@@ -473,16 +474,20 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 		match_flags ^= (-single_match ^ match_flags) & FULL;
 		if ( multi && single_match ) { 	
 			// If we've matched and might need to match again, use a new flag which can be checked 		
+			if ( match_flags > 7 ) exit(1);
+			printf("%s\n --- \n%s\n +++ \n[%d]\n", read_ptr, node_ptr, match_flags);
 			match_flags &= ~(1UL << 2); // Disable FULL flag.
 			match_flags |= (1UL << 1); // Enable MULTI flag.
 			node_ptr = node->expression;
+			printf("%s\n --- \n%s\n +++ \n[%d]\n", read_ptr, node_ptr, match_flags);
 		}
 	}
 
-	// Check that we're matching (if only bit 0 is set, we've not matched).
-	if ( req && match_flags < MULTI ) return NULL;
+	
+
+	if ( req && ( match_flags < 3 ) ) return NULL;
 	else if ( *regex_ptr == 0x00 ) {
-		if ( !req || ( req && match_flags >= MULTI ) ) return read_ptr;
+		if ( !req || ( req && match_flags == 3 ) ) return read_ptr;
 	}
 	
 	regex_ptr += (*regex_ptr == 0x2A || *regex_ptr == 0x2B || *regex_ptr == 0x3F);
