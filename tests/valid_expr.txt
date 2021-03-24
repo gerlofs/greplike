@@ -16,3 +16,5 @@ highl?y?$
 (no)* demands
 [a-z]+ demands
 [A-Za-z] (six|seven|eight)
+[A-Z]*(ee|i).?$
+[A-Z]*(e|i)+.?$
