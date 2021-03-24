@@ -13,14 +13,32 @@ expression_list *class = NULL;
 
 void print_match(char *line_text, char *match_ptr) {
 	/*
-	*	
+	*	Store each match (pointer address) into an array. 	
 	*/
 
 	char *read_ptr = line_text;
-	printf("Match: " ANSI_COLOUR_RED);
-	for ( ; *read_ptr != 0x00 && read_ptr != match_ptr; read_ptr++ ) printf("%c",*read_ptr);
-	printf(COLOUR_STOP);
-	printf("%s\n", read_ptr);
+	size_t nbytes = 0;
+	printf("%s\n%s\n", line_text, match_ptr);
+	fwrite(ANSI_COLOUR_RED, sizeof(char), 5, stdout);
+	for ( ; *read_ptr != 0x00 && read_ptr != match_ptr; nbytes++,read_ptr++ );
+	fwrite(line_text, sizeof(char), nbytes, stdout);
+	fwrite(COLOUR_STOP, sizeof(char), 4, stdout);
+	fwrite(read_ptr, sizeof(char), sizeof(read_ptr), stdout);
+	fwrite("\n", sizeof(char), 1, stdout);
+}
+
+void print_many(uint16_t *adr_offsets, uint16_t n_offsets, char *line_start) {
+	if (!n_offsets) return;
+	uint16_t total_offset = 0;
+	for(uint16_t o = 0; o < n_offsets; o+=2) {
+		fwrite(line_start+total_offset, sizeof(char), adr_offsets[o]-total_offset, stdout);
+		fwrite(ANSI_COLOUR_RED, sizeof(char), 5, stdout);
+		fwrite(line_start+adr_offsets[o], sizeof(char), adr_offsets[o+1], stdout);
+		fwrite(COLOUR_STOP, sizeof(char), 4, stdout);
+		total_offset=adr_offsets[o]+adr_offsets[o+1];
+	}
+	fwrite(line_start+total_offset, sizeof(char), strlen(line_start)-total_offset, stdout);
+	fwrite("\n", sizeof(char), 1, stdout);
 }
 
 int regex_find(char *regular_expression, char *line_text) {
@@ -31,6 +49,7 @@ int regex_find(char *regular_expression, char *line_text) {
 	*/
 	
 	size_t line_len = strlen(line_text);
+	char *start_ptr = line_text;
 	char *match_ptr = NULL;
 	int matched = 0;
 	
@@ -42,15 +61,21 @@ int regex_find(char *regular_expression, char *line_text) {
 		if ( match_ptr != NULL ) {
 			print_match(line_text, match_ptr);
 			return 1;
+
 		}
 	} else {
+		uint16_t *adr_offsets = error_checked_malloc(sizeof(uint16_t) * 2);
+		uint16_t i = 0;
 		do { // Try to match the line, if the line ends, we return zero.
 			if ( (match_ptr = regex_match(regular_expression, line_text)) != NULL ) {
-				print_match(line_text, match_ptr);
+				adr_offsets[i++] = line_text - start_ptr; // Offset from line start.
+				adr_offsets[i++] = match_ptr - line_text;
+				adr_offsets = error_checked_realloc(adr_offsets, sizeof(uint16_t) * (i+2));
 				line_text = match_ptr;
-				matched |= 1;	
+				matched |= 1;
 			}
 		} while ( *(line_text++) != 0x00 );
+		print_many(adr_offsets, i, start_ptr);
 	}
 	
 	return matched;
