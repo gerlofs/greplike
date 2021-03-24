@@ -1,11 +1,12 @@
+/* GREPLIKE */
+/* REGEX.C */
+
 #include "regex.h"
 #define ANSI_COLOUR_RED 	"\x1b[31m"
 #define COLOUR_STOP 		"\x1b[0m"
 
 // TODO:
-// 1. Implement alternations (|). [Literals done, grouping in-progress].
-//		Two types of alternations should be possible, a single literal alternation:
-//			a|b should match to a or b, and (xyz|zyx) should match xyz or zyx. 
+// 1. Implement NFA / Thompson method.
 // 2. Find and fix inevitable memory leaks.
 
 expression_list *group = NULL;
@@ -13,12 +14,13 @@ expression_list *class = NULL;
 
 void print_match(char *line_text, char *match_ptr) {
 	/*
-	*	Store each match (pointer address) into an array. 	
+	*	In the case of an expression containing a caret (^) which only 
+	*	searches in the first set of characters, the easiest solution
+	*	is just to print the line up to and including the match.		
 	*/
 
 	char *read_ptr = line_text;
 	size_t nbytes = 0;
-	printf("%s\n%s\n", line_text, match_ptr);
 	fwrite(ANSI_COLOUR_RED, sizeof(char), 5, stdout);
 	for ( ; *read_ptr != 0x00 && read_ptr != match_ptr; nbytes++,read_ptr++ );
 	fwrite(line_text, sizeof(char), nbytes, stdout);
@@ -28,6 +30,22 @@ void print_match(char *line_text, char *match_ptr) {
 }
 
 void print_many(uint16_t *adr_offsets, uint16_t n_offsets, char *line_start) {
+	/*
+	 * 	In the general case, there are going to be several matches a line
+	 z* 	which requires a set of highlighted words within a block of text.
+	 * 	Rather than print each line including the match and find where to 
+	 * 	properly break the line, we take a copy of the line start address
+	 * 	prior to matching and print that line out in chunks.
+	 *
+	 * 	adr_offsets is an array containing 16-bit integers in sets of two.
+	 * 	The first index in each pair is the offset from the start of the 
+	 * 	line to get to the matching word, the second index is the length
+	 * 	of bytes in the matching word. The general rule is to keep track
+	 * 	of what the current offset from the start of the string is to 
+	 * 	make sure we're printing the line correctly including matches.
+	 * 	e.g. [3, 2, 16, 2]
+	 * 	Hel__o world qwe__yiop
+	*/
 	if (!n_offsets) return;
 	uint16_t total_offset = 0;
 	for(uint16_t o = 0; o < n_offsets; o+=2) {
@@ -42,7 +60,8 @@ void print_many(uint16_t *adr_offsets, uint16_t n_offsets, char *line_start) {
 }
 
 int regex_find(char *regular_expression, char *line_text) {
-	/*  Find the position to start regular expression matching from.
+	/*  
+	 *  Find the position to start regular expression matching from.
 	 *  If the first character of the regular expression is a caret (^) we need to start searching 
 	 *	from the start of the line and use the regular expression minus the first character (^) to match against.
 	 *  Other_charwise search the line character by character in a loop.

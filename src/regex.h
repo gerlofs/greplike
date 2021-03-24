@@ -1,3 +1,6 @@
+/* GREPLIKE */
+/* REGEX.H */
+
 #ifndef REGEX_H
 #define REGEX_H
 
@@ -22,6 +25,8 @@ typedef struct node {
 	struct node *next;
 } expression_list;
 
+void print_match(char*, char*);
+void print_many(uint16_t*, uint16_t, char*);
 int regex_find(char*, char*);
 char *regex_match(char*, char*);
 char *multi_match_single_char(unsigned, char, char*, char*);

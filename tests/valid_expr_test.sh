@@ -24,7 +24,7 @@ matchfile='dummy.txt'
 tn=1
 
 while read -r line; do
-	./$codefile "$line" "$matchfile"  >> results.txt #/dev/null 2>&1
+	./$codefile "$line" "$matchfile"  #>> results.txt #/dev/null 2>&1
 	check_result $? $tn $line
 	tn=$((tn+1))
 done < $filename
