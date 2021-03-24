@@ -203,7 +203,6 @@ expression_list *create_class(char *regex_ptr) {
 	// Parse and check there is an end bracket. 
 	int valid_expr = 0;
 	read_ptr = regex_ptr;
-		printf("%s\n", read_ptr);
 	while ((valid_expr |= (*(read_ptr++) == 0x5D)) <= 0 && *read_ptr != 0x00);
 	if ( !valid_expr ) {
 		fprintf(stdout, "No matching ] found for given class: %s\n", regex_ptr);
