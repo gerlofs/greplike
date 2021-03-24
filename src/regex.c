@@ -203,7 +203,6 @@ expression_list *create_class(char *regex_ptr) {
 	// Parse and check there is an end bracket. 
 	int valid_expr = 0;
 	read_ptr = regex_ptr;
-		printf("%s\n", read_ptr);
 	while ((valid_expr |= (*(read_ptr++) == 0x5D)) <= 0 && *read_ptr != 0x00);
 	if ( !valid_expr ) {
 		fprintf(stdout, "No matching ] found for given class: %s\n", regex_ptr);
@@ -429,13 +428,20 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 			^ n_n_p
 			^ n_p
 	*/
+
+	enum flags {
+		PARTIAL = 1,
+		MULTI = 2,
+		FULL = 4
+	};
 	
 	char *read_ptr = line_ptr; 
 	char *node_ptr = node->expression;
-	uint8_t match_flags = 0; // Contains two flags, an inside match (1) and an outside match (2).
+	uint8_t match_flags = 0;
 	 /* Match flag bits:
-	 *	0: Partially matching within an alternation.
-	 *	1: Fully matching
+	 *	0: Partially matching within an alternation. [1]
+	 *	1: Fully matching [2]
+	 *	2: Matched a previous partial but attempting a subsequent match (* or +). [4]
 	 */
 	
 	int single_match = 0;
@@ -443,7 +449,7 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	int multi = is_bit_set(node->match_flags, 1);
 	int req = is_bit_set(node->match_flags, 0);
 
-	while ( match_flags < 3 && *read_ptr != 0x00 && *node_ptr != 0x00 ) {	
+	while ( match_flags < FULL && *read_ptr != 0x00 && *node_ptr != 0x00 ) {	
 		// Store the current pointer position for comparison.
 		char *p_store = node_ptr;
 		
@@ -458,21 +464,24 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 			if ( alt ) {
 				for ( ; *node_ptr != 0x00 && *node_ptr != 0x7C; node_ptr++);
 				node_ptr++; // Remove pipe, can't be done inside the for loop.
-				read_ptr = line_ptr;
 			} else break;
 		}
 		
-		// Are we at an end-point?
-		int isend = (*node_ptr == 0x00 || *node_ptr == 0x7C );
 		// Set match_flags to 3 if we're matched and the next char is a pipe or end point.
-		single_match = (single_match && isend);
-		match_flags ^= (-single_match ^ match_flags) & 2;
-		if ( multi && isend ) node_ptr = node->expression;
+		single_match = (single_match && (*node_ptr == 0x00 || *node_ptr == 0x7C));
+		match_flags ^= (-single_match ^ match_flags) & FULL;
+		if ( multi && single_match ) { 	
+			// If we've matched and might need to match again, use a new flag which can be checked 		
+			match_flags &= ~(1UL << 2); // Disable FULL flag.
+			match_flags |= (1UL << 1); // Enable MULTI flag.
+			node_ptr = node->expression;
+		}
 	}
 
-	if ( req && ( match_flags < 3 ) ) return NULL;
+	// Check that we're matching (if only bit 0 is set, we've not matched).
+	if ( req && match_flags < MULTI ) return NULL;
 	else if ( *regex_ptr == 0x00 ) {
-		if ( !req || ( req && match_flags == 3 ) ) return read_ptr;
+		if ( !req || ( req && match_flags >= MULTI ) ) return read_ptr;
 	}
 	
 	regex_ptr += (*regex_ptr == 0x2A || *regex_ptr == 0x2B || *regex_ptr == 0x3F);

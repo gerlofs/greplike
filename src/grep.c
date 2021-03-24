@@ -165,7 +165,6 @@ struct arguments *parse_arguments(int argc, char **argv) {
 		}
 
 		for (;i < end_index;i++) {
-			printf("DEBUG: %c\n", c);
 			switch ( (int) c ) {
 				case 0x66: // -f
 					args = append_file(args, argv[i]);

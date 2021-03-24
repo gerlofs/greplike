@@ -12,7 +12,9 @@ check_result() {
 	
 	if [ $1 -ne 0 ] 
 	then
-		echo "FAILED: Test #$2 ($3), exit code was $1.", >&2
+		echo "FAILED: Test #$2 {$3}, exit code was $1" >&2
+	else 
+		echo "PASSED: Test #$2 {$3}" >&1
 	fi
 }
 
@@ -22,7 +24,7 @@ matchfile='dummy.txt'
 tn=1
 
 while read -r line; do
-	./$codefile "$line" "$matchfile" >> results.txt #/dev/null 2>&1
+	./$codefile "$line" "$matchfile"  #>> results.txt #/dev/null 2>&1
 	check_result $? $tn $line
 	tn=$((tn+1))
 done < $filename
