@@ -248,5 +248,6 @@ int run_matching(struct arguments *args) {
 int main(int argc, char **argv) {	
 	struct arguments *args = parse_arguments(argc, argv);
 	run_matching(args);
+	node_teardown();
 	free(args);
 }

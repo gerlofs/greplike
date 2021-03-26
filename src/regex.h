@@ -34,7 +34,7 @@ char *match_group(expression_list*, char*, char*);
 expression_list *create_group(char*);
 expression_list *create_node();
 void append_node(expression_list*, expression_list*);
-void group_teardown();
+void node_teardown();
 expression_list *create_class(char *);
 char *generate_range(char *, size_t, char, char);
 char *match_class(expression_list*, char*, char*);

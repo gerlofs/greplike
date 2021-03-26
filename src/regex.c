@@ -79,7 +79,7 @@ int regex_find(char *regular_expression, char *line_text) {
 		match_ptr = regex_match(regular_expression+1, line_text);
 		if ( match_ptr != NULL ) {
 			print_match(line_text, match_ptr);
-			return 1;
+			matched++;
 
 		}
 	} else {
@@ -434,7 +434,7 @@ expression_list *create_group(char *regex_ptr) {
 	return node;
 }
 
-void group_teardown() {
+void node_teardown() {
 	expression_list *head = group;
 	expression_list *next = NULL;
 	
@@ -444,8 +444,18 @@ void group_teardown() {
 			head = next;
 	}
 	
-	
 	group = NULL;
+	
+	head = class;
+	next = NULL;
+	
+	while ( head != NULL ) {
+			next = head->next;
+			free(head);
+			head = next;
+	}
+	
+	class = NULL;
 }
 
 char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
