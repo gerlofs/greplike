@@ -32,7 +32,7 @@ void print_match(char *line_text, char *match_ptr) {
 void print_many(uint16_t *adr_offsets, uint16_t n_offsets, char *line_start) {
 	/*
 	 * 	In the general case, there are going to be several matches a line
-	 z* 	which requires a set of highlighted words within a block of text.
+	 * 	which requires a set of highlighted words within a block of text.
 	 * 	Rather than print each line including the match and find where to 
 	 * 	properly break the line, we take a copy of the line start address
 	 * 	prior to matching and print that line out in chunks.
@@ -114,45 +114,46 @@ char *regex_match(char *regular_expression, char *line_text) {
 	*			by recursively calling regex_match with each pointer incremented.
 	*/
 	
-	char current_char = regular_expression[0]; char next_char = regular_expression[1];
+	char current = regular_expression[0]; 
+	char next = (current == 0x00) ? (char) 0x00 : regular_expression[1];
 	// If current regex char is $ and the next regex char is a NULL, check we've exhausted the line_text as well.
-	if ( current_char == 0x24 && next_char == 0x00 && *line_text == 0x00) { 
+	if ( current == 0x24 && next == 0x00 && *line_text == 0x00) { 
 		return line_text;
 	}
 	// If we've exhausted the regex pattern, we've matched.
-	else if ( current_char == 0x00 ) { 
+	else if ( current == 0x00 ) { 
 		return line_text;
 	}
 	// If we have an un-escaped bracket, we're grouping.
-	else if ( current_char == 0x28 && *(regular_expression-1) != 0x5C) {
+	else if ( current == 0x28 && *(regular_expression-1) != 0x5C) {
 		expression_list *node = create_group(++regular_expression);
 		while ( *(regular_expression++) != 0x29 );
 		return match_group(node, regular_expression, line_text);	
 	}
 	// If we have an un-escaped square-bracket, there's a class.
-	else if ( current_char == 0x5B && *(regular_expression-1) != 0x5C) {
+	else if ( current == 0x5B && *(regular_expression-1) != 0x5C) {
 		expression_list *node = create_class(++regular_expression);
 		while ( *(regular_expression++) != 0x5D );
 		return match_class(node, regular_expression, line_text);
 	}
 	// A character alternation is present, if regex+0 matches line+0 then we're good, 
 	//		otherwise, try to match to the other possible character.
-	else if ( current_char != 0x5C && next_char == 0x7C ) {
-		if ( *line_text != current_char ) return regex_match(regular_expression+2, line_text);
+	else if ( current != 0x5C && next == 0x7C ) {
+		if ( *line_text != current ) return regex_match(regular_expression+2, line_text);
 		else return regex_match(regular_expression+3, line_text+1);
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
-	else if ( next_char == 0x3F ) {
-		if ( current_char == *line_text ) return regex_match(regular_expression+2, line_text+1);
+	else if ( next == 0x3F ) {
+		if ( current == *line_text ) return regex_match(regular_expression+2, line_text+1);
 		else return regex_match(regular_expression+2, line_text);
 	}
 	// If there's a 'one or more' or a 'none or more' operator we start a different expression check (see func).
-	else if ( next_char == 0x2A || next_char == 0x2B ) {
-		return multi_match_single_char((next_char == 0x2B), current_char, regular_expression+2, line_text);
+	else if ( next == 0x2A || next == 0x2B ) {
+		return multi_match_single_char((next == 0x2B), current, regular_expression+2, line_text);
 	}		
 	// If we're not at line end and we can match any character (besides line break) OR the char matches the text, continue matching (recurr).
 	// Additionally, if the current regex character is a backslash, we ignore it.
-	else if ( (current_char == 0x5C ) || (*line_text != 0x00 && ( current_char == 0x2E || current_char == *line_text)) ) {
+	else if ( (current == 0x5C ) || (*line_text != 0x00 && ( current == 0x2E || current == *line_text)) ) {
 		return regex_match(regular_expression+1, line_text+1);
 	}
 	// If we reach the end of the regex matching without returning, we've failed to match.
