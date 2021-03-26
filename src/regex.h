@@ -28,7 +28,7 @@ typedef struct node {
 void print_match(char*, char*);
 void print_many(uint16_t*, uint16_t, char*);
 int regex_find(char*, char*);
-char *regex_match(char*, char*);
+char *regex_match(char*, char*, int8_t);
 char *multi_match_single_char(unsigned, char, char*, char*);
 char *match_group(expression_list*, char*, char*);
 expression_list *create_group(char*);

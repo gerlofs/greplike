@@ -71,12 +71,12 @@ int regex_find(char *regular_expression, char *line_text) {
 	char *start_ptr = line_text;
 	char *match_ptr = NULL;
 	int matched = 0;
-	
+		
 	if ( line_text[line_len-1] == 0x0A ) line_text[line_len-1] = 0x00;
 	// If we have a caret, run the match once only from the string start 
 	// (only match in the next _n_ characters where n is strlen(regex+1)).
 	if ( regular_expression[0] == 0x5E) {
-		match_ptr = regex_match(regular_expression+1, line_text);
+		match_ptr = regex_match(regular_expression+1, line_text, 0);
 		if ( match_ptr != NULL ) {
 			print_match(line_text, match_ptr);
 			matched++;
@@ -85,8 +85,9 @@ int regex_find(char *regular_expression, char *line_text) {
 	} else {
 		uint16_t *adr_offsets = error_checked_malloc(sizeof(uint16_t) * 2);
 		uint16_t i = 0;
+		//int8_t allow_escaping = 0; // Use of the backslash is only permitted if we're past the first char.
 		do { // Try to match the line, if the line ends, we return zero.
-			if ( (match_ptr = regex_match(regular_expression, line_text)) != NULL ) {
+			if ( (match_ptr = regex_match(regular_expression, line_text, 0)) != NULL ) {
 				adr_offsets[i++] = line_text - start_ptr; // Offset from line start.
 				adr_offsets[i++] = match_ptr - line_text;
 				adr_offsets = error_checked_realloc(adr_offsets, sizeof(uint16_t) * (i+2));
@@ -95,12 +96,13 @@ int regex_find(char *regular_expression, char *line_text) {
 			}
 		} while ( *(line_text++) != 0x00 );
 		print_many(adr_offsets, i, start_ptr);
+		free(adr_offsets);
 	}
 	
 	return matched;
 }
 
-char *regex_match(char *regular_expression, char *line_text) {
+char *regex_match(char *regular_expression, char *line_text, int8_t allow_escaping) {
 	/*	Take an input regular expression and an input line of text (usually from a file).
 	*	The first and second characters of the regular expression pointer determines the how to parse and check the line.
 	*		[0] == $ (0x24) || \0 (0x00) checks the regular expression and line text are both empty.
@@ -113,25 +115,25 @@ char *regex_match(char *regular_expression, char *line_text) {
 	*		Default: If the line is not at an end (0x00) and [0] is . or a matching character (== *line_text), continue matching
 	*			by recursively calling regex_match with each pointer incremented.
 	*/
-	
 	char current = regular_expression[0]; 
 	char next = (current == 0x00) ? (char) 0x00 : regular_expression[1];
+	
 	// If current regex char is $ and the next regex char is a NULL, check we've exhausted the line_text as well.
 	if ( current == 0x24 && next == 0x00 && *line_text == 0x00) { 
 		return line_text;
 	}
 	// If we've exhausted the regex pattern, we've matched.
-	else if ( current == 0x00 ) { 
+	else if ( current == 0x00 ) {
 		return line_text;
 	}
 	// If we have an un-escaped bracket, we're grouping.
-	else if ( current == 0x28 && *(regular_expression-1) != 0x5C) {
+	else if (*(regular_expression-(1*allow_escaping)) != 0x5C && current == 0x28 ) {
 		expression_list *node = create_group(++regular_expression);
 		while ( *(regular_expression++) != 0x29 );
 		return match_group(node, regular_expression, line_text);	
 	}
 	// If we have an un-escaped square-bracket, there's a class.
-	else if ( current == 0x5B && *(regular_expression-1) != 0x5C) {
+	else if ( *(regular_expression-(1*allow_escaping)) != 0x5C && current == 0x5B ) {
 		expression_list *node = create_class(++regular_expression);
 		while ( *(regular_expression++) != 0x5D );
 		return match_class(node, regular_expression, line_text);
@@ -139,22 +141,23 @@ char *regex_match(char *regular_expression, char *line_text) {
 	// A character alternation is present, if regex+0 matches line+0 then we're good, 
 	//		otherwise, try to match to the other possible character.
 	else if ( current != 0x5C && next == 0x7C ) {
-		if ( *line_text != current ) return regex_match(regular_expression+2, line_text);
-		else return regex_match(regular_expression+3, line_text+1);
+		if ( *line_text != current ) return regex_match(regular_expression+2, line_text, allow_escaping|=1);
+		else return regex_match(regular_expression+3, line_text+1, allow_escaping|=1);
 	}
 	// If next character is an optional, either the next character matches the character after the optional OR the current one does.
 	else if ( next == 0x3F ) {
-		if ( current == *line_text ) return regex_match(regular_expression+2, line_text+1);
-		else return regex_match(regular_expression+2, line_text);
+		if ( current == *line_text ) return regex_match(regular_expression+2, line_text+1, allow_escaping);
+		else return regex_match(regular_expression+2, line_text, allow_escaping|=1);
 	}
 	// If there's a 'one or more' or a 'none or more' operator we start a different expression check (see func).
 	else if ( next == 0x2A || next == 0x2B ) {
+		allow_escaping |= 1;
 		return multi_match_single_char((next == 0x2B), current, regular_expression+2, line_text);
 	}		
 	// If we're not at line end and we can match any character (besides line break) OR the char matches the text, continue matching (recurr).
 	// Additionally, if the current regex character is a backslash, we ignore it.
 	else if ( (current == 0x5C ) || (*line_text != 0x00 && ( current == 0x2E || current == *line_text)) ) {
-		return regex_match(regular_expression+1, line_text+1);
+		return regex_match(regular_expression+1, line_text+1, allow_escaping|=1);
 	}
 	// If we reach the end of the regex matching without returning, we've failed to match.
 	return NULL;
@@ -189,7 +192,7 @@ char *multi_match_single_char(unsigned match_n, char to_match, char *regular_exp
 	char *match_ptr = NULL;
 	do {
 		// Match the new string pointer to the regular expression character.
-		if ( (match_ptr=regex_match(regular_expression, text_ptr)) != NULL ) return match_ptr;
+		if ( (match_ptr=regex_match(regular_expression, text_ptr, 1)) != NULL ) return match_ptr;
 	} while (text_ptr-- > line_text); // Move backwards until we reach the 'start' of the text.
 	
 	return NULL;
@@ -297,16 +300,16 @@ char *generate_range(char *class_ptr, size_t current_len, char a, char b) {
 		a ^= b; // Swap vars.
 	}
 	unsigned range_len = (int) b - (int) a;
-
 	// Reallocate the class_ptr.
-	class_ptr = (char *) error_checked_realloc(class_ptr, current_len + range_len);
+	class_ptr = (char *) error_checked_realloc(class_ptr, (current_len + (range_len+1))+1);
 	char *write_ptr = (class_ptr+current_len);
+	unsigned len;
 
-	for (unsigned len = current_len; len <= (range_len + current_len); len++,write_ptr++) {
-		*write_ptr = (char) a++;
+	for (len = current_len; len <= (range_len + current_len); len++) {
+		write_ptr[len] = (char) a++;
 	}
 
-	*write_ptr = (char) 0x00;
+	write_ptr[len] = (char) 0x00;
 
 	return class_ptr;
 }
@@ -339,7 +342,7 @@ char *match_class(expression_list *node, char *regex_ptr, char *line_ptr) {
 
 	char *match_ptr = NULL;
 	do { 
-		if ( (match_ptr=regex_match(regex_ptr, read_ptr)) ) return match_ptr;
+		if ( (match_ptr=regex_match(regex_ptr, read_ptr, 1)) ) return match_ptr;
 	} while ( read_ptr-- > line_ptr);
 	
 	return NULL;
@@ -543,7 +546,7 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 
 	char *match_ptr = NULL;
 	do { // Match similarly to the single character match in multi_match_single_char.
-		if ( (match_ptr=regex_match(regex_ptr, read_ptr)) ) return match_ptr;
+		if ( (match_ptr=regex_match(regex_ptr, read_ptr, 1)) ) return match_ptr;
 	} while (read_ptr-- > line_ptr);
 	
 	return NULL;	

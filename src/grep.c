@@ -18,7 +18,6 @@ struct arguments *append_file(struct arguments *args, char *filename) {
 	f.length = filename_len;
 	strncpy(f.filename, filename, filename_len+1);
 	f.filename[filename_len] = 0x00;	
-	// Note: Because input arguments are null-terminated, we don't need to do that..
 	if ( args->files == NULL ) args->files = ( struct file * ) error_checked_malloc(sizeof(*args->files));
 	else args->files = (struct file *) error_checked_realloc(args->files, sizeof(*args->files) * args->num_files);
 	args->files[args->num_files] = f;
@@ -237,11 +236,11 @@ int run_matching(struct arguments *args) {
 					printf("\nMatched in: %s\n", args->files[f].filename);
 				}
 			}
+			free(lb);
 		}
 	}
-
+	
 	if ( count_print ) printf("\nMatches: %u\n", match_count);
-
 	return 1;
 }
 
@@ -249,5 +248,9 @@ int main(int argc, char **argv) {
 	struct arguments *args = parse_arguments(argc, argv);
 	run_matching(args);
 	node_teardown();
+	free(args->expression);
+	for ( uint8_t n = 0; n < args->num_files; n++) free(args->files[n].filename);
+	free(args->files);
+
 	free(args);
 }
