@@ -1,3 +1,6 @@
+/* GREPLIKE */
+/* GREP.C */
+
 #include "grep.h"
 #include "alloc.h"
 #include "file.h"
@@ -7,18 +10,14 @@ struct arguments *append_file(struct arguments *args, char *filename) {
 	/*	Assign and allocate filename string to args->files string array.
 	*	Increment the args->num-files counter.
 	*	Return a new args struct containing the new file entry.
-	*	
-	*	TODO: Just make this return a string pointer or a pointer to a 
-	*			linked list of filenames (this is preferable as it lets
-	*			us add additional entries later, e.g. user ids and perms).
 	*/
 	
 	size_t filename_len = strlen(filename);
 	struct file f;
-	f.filename = (char *) error_checked_malloc(filename_len);
+	f.filename = (char *) error_checked_malloc(filename_len+1);
 	f.length = filename_len;
-	strncpy(f.filename, filename, filename_len);
-	f.filename[filename_len] = 0x00;
+	strncpy(f.filename, filename, filename_len+1);
+	f.filename[filename_len] = 0x00;	
 	if ( args->files == NULL ) args->files = ( struct file * ) error_checked_malloc(sizeof(*args->files));
 	else args->files = (struct file *) error_checked_realloc(args->files, sizeof(*args->files) * args->num_files);
 	args->files[args->num_files] = f;
@@ -223,7 +222,8 @@ int run_matching(struct arguments *args) {
 	
 	for ( int f = 0; f < args->num_files; f++ ) {
 		unsigned line_number = 0;
-		FILE *fp = open_file(args->files[f].filename);
+		struct file _file = args->files[f];
+		FILE *fp = open_file(_file.filename, _file.length);
 		char *lb = NULL;
 	    
 	while ((lb=read_line(fp)) != NULL ) {
@@ -236,16 +236,21 @@ int run_matching(struct arguments *args) {
 					printf("\nMatched in: %s\n", args->files[f].filename);
 				}
 			}
+			free(lb);
 		}
 	}
-
+	
 	if ( count_print ) printf("\nMatches: %u\n", match_count);
-
 	return 1;
 }
 
 int main(int argc, char **argv) {	
 	struct arguments *args = parse_arguments(argc, argv);
 	run_matching(args);
+	node_teardown();
+	free(args->expression);
+	for ( uint8_t n = 0; n < args->num_files; n++) free(args->files[n].filename);
+	free(args->files);
+
 	free(args);
 }

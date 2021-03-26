@@ -18,3 +18,5 @@ highl?y?$
 [A-Za-z] (six|seven|eight)
 [A-Z]*(ee|i).?$
 [A-Z]*(e|i)+.?$
+co(n|l|s)+(ider|vict|ect)
+[A-Z]+(nd)*$

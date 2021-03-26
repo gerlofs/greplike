@@ -1,3 +1,6 @@
+/* GREPLIKE */
+/* FILE.H */
+
 #ifndef FILE_H
 #define FILE_H
 
@@ -11,6 +14,6 @@
 #define BUFF_INCR 128 	// Number of bytes to increase the buffer by each time we don't read a line end.
 
 char *read_line(FILE*);
-FILE *open_file(char *filename);
+FILE *open_file(char*, size_t);
 
 #endif /* FILE_H */

@@ -1,3 +1,12 @@
+/* GREPLIKE */
+/* ALLOC.C */
+
+/* A set of abstractions that invokes and then checks
+ * malloc and realloc. As these need to be flexible,
+ * the outputs need to be cast.
+ * e.g. char *str = (*char) error_checked_malloc(n);
+ */
+
 #include "alloc.h"
 
 void *error_checked_malloc(size_t nbytes) {

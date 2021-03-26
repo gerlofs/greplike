@@ -1,4 +1,5 @@
-/* Grep.h */
+/* GREPLIKE */
+/* GREP.H */
 
 #ifndef GREP_H
 #define GREP_H
@@ -28,8 +29,7 @@ struct arguments {
 	/*	Flags:
 	*	0: Return line numbers.
 	*	1: Return filenames.
-	*	2: Return match count.
-	*	
+	*	2: Return match count.	
 	*/
 };
 
