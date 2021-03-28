@@ -5,7 +5,7 @@
 #define ANSI_COLOUR_RED 	"\x1b[31m"
 #define COLOUR_STOP 		"\x1b[0m"
 
-// TODO:
+/// TODO:
 // 1. Implement NFA / Thompson method.
 // 2. Find and fix inevitable memory leaks.
 
@@ -247,7 +247,7 @@ expression_list *create_class(char *regex_ptr) {
 		
 		head = head->next;			
 	}
-	
+
 	// Parse and check there is an end bracket. 
 	int valid_expr = 0;
 	read_ptr = regex_ptr;
@@ -299,18 +299,16 @@ char *generate_range(char *class_ptr, size_t current_len, char a, char b) {
 		b ^= a;
 		a ^= b; // Swap vars.
 	}
-	unsigned range_len = (int) b - (int) a;
+	uint16_t range_len = (int) b - (int) a;
 	// Reallocate the class_ptr.
 	class_ptr = (char *) error_checked_realloc(class_ptr, (current_len + (range_len+1))+1);
-	char *write_ptr = (class_ptr+current_len);
-	unsigned len;
+	uint16_t len;
 
 	for (len = current_len; len <= (range_len + current_len); len++) {
-		write_ptr[len] = (char) a++;
+		class_ptr[len] = (char) a++;
 	}
 
-	write_ptr[len] = (char) 0x00;
-
+	class_ptr[len] = (char) 0x00;
 	return class_ptr;
 }
 
