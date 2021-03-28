@@ -5,7 +5,7 @@
 #define ANSI_COLOUR_RED 	"\x1b[31m"
 #define COLOUR_STOP 		"\x1b[0m"
 
-// TODO:
+/// TODO:
 // 1. Implement NFA / Thompson method.
 // 2. Find and fix inevitable memory leaks.
 
@@ -247,7 +247,7 @@ expression_list *create_class(char *regex_ptr) {
 		
 		head = head->next;			
 	}
-	
+
 	// Parse and check there is an end bracket. 
 	int valid_expr = 0;
 	read_ptr = regex_ptr;
@@ -299,18 +299,16 @@ char *generate_range(char *class_ptr, size_t current_len, char a, char b) {
 		b ^= a;
 		a ^= b; // Swap vars.
 	}
-	unsigned range_len = (int) b - (int) a;
+	uint16_t range_len = (int) b - (int) a;
 	// Reallocate the class_ptr.
 	class_ptr = (char *) error_checked_realloc(class_ptr, (current_len + (range_len+1))+1);
-	char *write_ptr = (class_ptr+current_len);
-	unsigned len;
+	uint16_t len;
 
 	for (len = current_len; len <= (range_len + current_len); len++) {
-		write_ptr[len] = (char) a++;
+		class_ptr[len] = (char) a++;
 	}
 
-	write_ptr[len] = (char) 0x00;
-
+	class_ptr[len] = (char) 0x00;
 	return class_ptr;
 }
 
@@ -416,7 +414,7 @@ expression_list *create_group(char *regex_ptr) {
 
 	// Assign, allocate, and populate group linked list node with the group expression string.
 	node = create_node();
-	node->expression = (char *) error_checked_malloc(group_len+1);
+	node->expression = (char *) error_checked_malloc(sizeof(char) * (group_len+1));
 	strncpy(node->expression, regex_ptr, group_len);
 	node->expression[group_len] = (char) 0x00;
 	// If char immediately following the closed parenthesis is a * or ?, we do not need to match, set to zero.
@@ -431,7 +429,7 @@ expression_list *create_group(char *regex_ptr) {
 	
 	node->match_flags = flags;
 	node->match_char = *read_ptr;
-	node->length = strlen(node->expression);
+	node->length = group_len;
 	if ( group == NULL ) group = node;
 	else append_node(group, node);
 	return node;
@@ -507,7 +505,7 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	int multi = is_bit_set(node->match_flags, 1);
 	int req = is_bit_set(node->match_flags, 0);
 
-	while ( match_flags < FULL && *read_ptr != 0x00 && *node_ptr != 0x00 ) {	
+	while ( match_flags < FULL && ( *read_ptr != 0x00 && *node_ptr != 0x00 )) {	
 		// Store the current pointer position for comparison.
 		char *p_store = node_ptr;
 		

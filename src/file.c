@@ -62,8 +62,6 @@ FILE *open_file(char *filename, size_t length) {
 	 * access() is used to check whether a) a file exists and b) whether it is readable.
 	 */
 	
-	printf("Length: %lu, filename %s\n", length, filename);
-
 	if ( length == 0 ) {
 		fprintf(stderr, "Empty filename given\n");
 		exit(1);
