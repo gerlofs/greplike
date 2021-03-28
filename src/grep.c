@@ -21,7 +21,6 @@ struct arguments *append_file(struct arguments *args, char *filename) {
 	if ( args->files == NULL ) args->files = ( struct file * ) error_checked_malloc(sizeof(*args->files));
 	else args->files = (struct file *) error_checked_realloc(args->files, sizeof(*args->files) * (args->num_files+1));
 	args->files[args->num_files] = f;
-	printf("DEBUG: %s\n", args->files[args->num_files].filename);
 	args->num_files += 1;
 	return args;
 }
