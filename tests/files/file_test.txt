@@ -1,0 +1,14 @@
+3
+сладостный
+2
+zoo\.
+1
+(six|seven|eight)
+2
+(bedroeg|oorzaak|rijkste)
+2
+[A-Z]....ooten
+3
+За.$
+3
+(з|З)то

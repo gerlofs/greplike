@@ -7,15 +7,15 @@ check_result() {
 	
 	if [ $1 -eq 0 ] 
 	then
-		echo "FAILED: Test #$2 ($3), exit code was $1", >&2
+		echo "FAILED: Test #$2 ($3), exit code was $1" >&2
 	else
-		echo "PASS: Test #$2 ($3)", >&2
+		echo "PASS: Test #$2 ($3)" >&2
 	fi
 }
 
 codefile='../src/greplike'
-filename='invalid_expr.txt'
-matchfile='dummy.txt'
+filename='files/invalid_expr.txt'
+matchfile='files/dummy1.txt'
 tn=1
 
 while read -r line; do
@@ -25,7 +25,7 @@ while read -r line; do
 done < $filename
 
 # Check for invalid filenames.
-filenames=('/' '\0' 'randomfile', 'noaccess.txt')
+filenames=('/' '\0' 'randomfile', 'files/noaccess.txt')
 for f in ${filenames[@]}; do
 	./$codefile "expr" "$f" > /dev/null 2>&1
 	check_result $? $tn $f

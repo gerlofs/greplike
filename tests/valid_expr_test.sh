@@ -19,8 +19,8 @@ check_result() {
 }
 
 codefile='../src/greplike'
-filename='valid_expr.txt'
-matchfile='dummy.txt'
+filename='files/valid_expr.txt'
+matchfile='files/dummy1.txt'
 tn=1
 
 while read -r line; do

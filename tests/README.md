@@ -14,8 +14,18 @@ Check a list of valid expressions against a single file.
 
 Check a list of valid expressions against multiple files.
 
-3. **Timing** test case.
+3. The **single file** tests.
 
-Run a list of valid and invalid expressions against a list of files using both grep and greplike, 
-log the time taken and average this out at the end of the test, they should closely match (~10% 
-difference is permissable). 
+Check a list of expressions on one of three files.
+
+Each should return a success code.
+
+4. The **multi-file** test.
+
+Check a list of expressions against all three files.
+
+Each should return a success code.
+
+5. **Timing** test case.
+
+Run a list of valid expressions against a list of files using both grep and greplike, report the times of both commands using `time ...`.
