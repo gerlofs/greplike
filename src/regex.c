@@ -414,7 +414,7 @@ expression_list *create_group(char *regex_ptr) {
 
 	// Assign, allocate, and populate group linked list node with the group expression string.
 	node = create_node();
-	node->expression = (char *) error_checked_malloc(group_len+1);
+	node->expression = (char *) error_checked_malloc(sizeof(char) * (group_len+1));
 	strncpy(node->expression, regex_ptr, group_len);
 	node->expression[group_len] = (char) 0x00;
 	// If char immediately following the closed parenthesis is a * or ?, we do not need to match, set to zero.
@@ -429,7 +429,7 @@ expression_list *create_group(char *regex_ptr) {
 	
 	node->match_flags = flags;
 	node->match_char = *read_ptr;
-	node->length = strlen(node->expression);
+	node->length = group_len;
 	if ( group == NULL ) group = node;
 	else append_node(group, node);
 	return node;
@@ -505,7 +505,7 @@ char *match_group(expression_list *node, char *regex_ptr, char *line_ptr) {
 	int multi = is_bit_set(node->match_flags, 1);
 	int req = is_bit_set(node->match_flags, 0);
 
-	while ( match_flags < FULL && *read_ptr != 0x00 && *node_ptr != 0x00 ) {	
+	while ( match_flags < FULL && ( *read_ptr != 0x00 && *node_ptr != 0x00 )) {	
 		// Store the current pointer position for comparison.
 		char *p_store = node_ptr;
 		

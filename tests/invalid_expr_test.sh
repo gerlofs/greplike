@@ -7,7 +7,9 @@ check_result() {
 	
 	if [ $1 -eq 0 ] 
 	then
-		echo "FAILED: Test #$2 ($3), exit code was $1.", >&2
+		echo "FAILED: Test #$2 ($3), exit code was $1", >&2
+	else
+		echo "PASS: Test #$2 ($3)", >&2
 	fi
 }
 
